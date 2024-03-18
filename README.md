@@ -11,7 +11,7 @@ Python scripts for integrating pipelines with various services/tools such as:
 The scripts perform work to enable continuous delivery (CD) for https://edx.org. These scripts are called from various tasks/jobs/stages in GoCD pipelines - but could be called from any automation/CD framework.
 
 
-## ⚠️ Deprecation Notice ⚠️
+## Notice: Moved scripts
 
 **Effective Date:** February 26, 2024
 
@@ -54,15 +54,10 @@ otherwise noted.
 
 Please see ``LICENSE.txt`` for details.
 
-## How To Contribute
-
-Contributions are very welcome.
-
-Please read [How To Contribute](https://github.com/openedx/.github/blob/master/CONTRIBUTING.md) for details.
 
 ## Reporting Security Issues
 
-Please do not report security issues in public. Please email security@openedx.org.
+Please do not report security issues in public. Please email security@edx.org.
 
 ## Environment variables
 
