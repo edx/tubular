@@ -33,3 +33,5 @@ APP_CONFIG:
   # Check None. Should all yield `key='None'`.
   NONE: !!null
   NONE_WITH_QUOTES: 'None'  # `None` instead of `null` because Python loads this file.
+
+  JS_CONFIG_FILEPATH: "dummy/file/path/env.stage.config.js"

@@ -63,6 +63,7 @@ def frontend_build(common_config_file, env_config_file, app_name, version_file):
     builder = FrontendBuilder(common_config_file, env_config_file, app_name, version_file)
     builder.install_requirements()
     app_config = builder.get_app_config()
+    builder.copy_js_config_file_to_app_root(app_config, app_name)
     env_vars = [
         f"{k}={ensure_wrapped_in_quotes(v)}"
         for k, v in app_config.items()
