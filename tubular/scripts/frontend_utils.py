@@ -156,16 +156,19 @@ class FrontendBuilder:
     def copy_js_config_file_to_app_root(self, app_config, app_name):
         """ Creates a copy of env.config.js(x) file to the app root """
         source = app_config.get('JS_CONFIG_FILEPATH')
-        filename = app_config.get('LOCAL_CONFIG_FILENAME', "env.config.js")
+
         # Skip if JS_CONFIG_FILEPATH not defined
-        if source:
-            destination = f"{app_name}/{filename}"
-            try:
-                shutil.copyfile(source, destination)
-            except FileNotFoundError:
-                self.FAIL(1, f"Could not find '{source}' for copying for app {app_name}.")
-            except OSError:
-                self.FAIL(1, f"Could not copy '{source}' to '{destination}', due to destination not writable.")
+        if not source:
+            return
+
+        filename = app_config.get('LOCAL_JS_CONFIG_FILENAME', "env.config.js")
+        destination = f"{app_name}/{filename}"
+        try:
+            shutil.copyfile(source, destination)
+        except FileNotFoundError:
+            self.FAIL(1, f"Could not find '{source}' for copying for app {app_name}.")
+        except OSError:
+            self.FAIL(1, f"Could not copy '{source}' to '{destination}', due to destination not writable.")
 
 
 class FrontendDeployer:

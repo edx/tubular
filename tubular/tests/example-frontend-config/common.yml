@@ -7,4 +7,4 @@ APP_CONFIG:
   COMMON_OVERRIDE_ME: initial_value
 
   # Local Config File Name
-  LOCAL_CONFIG_FILENAME: "env.config.js"
+  LOCAL_JS_CONFIG_FILENAME: "env.config.js"
