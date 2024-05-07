@@ -18,11 +18,12 @@ class TestFrontendBuildConfigHandling(TestCase):
     Cursory tests for frontend config parsing + marshalling.
     """
 
+    @mock.patch('tubular.scripts.frontend_utils.shutil.copyfile')
     @mock.patch.object(FrontendBuilder, 'create_version_file')
     @mock.patch.object(FrontendBuilder, 'build_app')
     @mock.patch.object(FrontendBuilder, 'install_requirements')
     def test_frontend_build_config_handling(
-            self, mock_install, mock_build, mock_create_version
+            self, mock_install, mock_build, mock_create_version, mock_shutil_copyfile
     ):
         exit_code = None
         try:
@@ -46,6 +47,7 @@ class TestFrontendBuildConfigHandling(TestCase):
         assert mock_build.call_args[0][0] == [
             "COMMON_VAR='common_value'",
             "COMMON_OVERRIDE_ME='overriden_value'",
+            "LOCAL_JS_CONFIG_FILENAME='env.config.jsx'",
             "VAR_WITH_SINGLE_QUOTES='The // value!'",
             "VAR_WITH_DOUBLE_QUOTES='The // value!'",
             "VAR_WITH_SINGLE_THEN_DOUBLE_QUOTES='The // value!'",
@@ -62,5 +64,9 @@ class TestFrontendBuildConfigHandling(TestCase):
             "BOOL_FALSE_WITH_QUOTES='False'",
             "NONE='None'",
             "NONE_WITH_QUOTES='None'",
+            "JS_CONFIG_FILEPATH='dummy/file/path/env.stage.config.jsx'",
         ]
         assert mock_create_version.call_count == 1
+        assert mock_shutil_copyfile.call_count == 1
+        # Verify that source is correct and destination is rightly formatted
+        mock_shutil_copyfile.assert_called_with('dummy/file/path/env.stage.config.jsx', 'coolfrontend/env.config.jsx')

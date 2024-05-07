@@ -33,3 +33,8 @@ APP_CONFIG:
   # Check None. Should all yield `key='None'`.
   NONE: !!null
   NONE_WITH_QUOTES: 'None'  # `None` instead of `null` because Python loads this file.
+
+  # This can be overridden for any MFE
+  LOCAL_JS_CONFIG_FILENAME: "env.config.jsx"
+
+  JS_CONFIG_FILEPATH: "dummy/file/path/env.stage.config.jsx"

@@ -5,6 +5,7 @@ single and multi deployment scripts DRY.
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -62,6 +63,7 @@ class FrontendBuilder:
             self.FAIL(1, 'Could not run `npm install` for app {}.'.format(self.app_name))
 
         self.install_requirements_npm_aliases()
+        self.install_requirements_npm_private()
 
     def install_requirements_npm_aliases(self):
         """ Install npm alias requirements for app to build """
@@ -86,6 +88,22 @@ class FrontendBuilder:
                     aliased_installs, self.app_name
                 ))
 
+    def install_requirements_npm_private(self):
+        """ Install npm private requirements for app to build """
+        npm_private = self.get_npm_private_config()
+        if npm_private:
+            install_list = ' '.join(npm_private)
+            install_private_proc = subprocess.Popen(
+                [f'npm install {install_list}'],
+                cwd=self.app_name,
+                shell=True
+            )
+            install_private_proc_return_code = install_private_proc.wait()
+            if install_private_proc_return_code != 0:
+                self.FAIL(1, 'Could not run `npm install {}` for app {}.'.format(
+                    install_list, self.app_name
+                ))
+
     def get_app_config(self):
         """ Combines the common and environment configs APP_CONFIG data """
         app_config = self.common_cfg.get('APP_CONFIG', {})
@@ -101,6 +119,14 @@ class FrontendBuilder:
         if not npm_aliases_config:
             self.LOG('No npm package aliases defined in config.')
         return npm_aliases_config
+
+    def get_npm_private_config(self):
+        """ Combines the common and environment configs NPM_PRIVATE packages """
+        npm_private_config = self.common_cfg.get('NPM_PRIVATE', [])
+        npm_private_config.extend(self.env_cfg.get('NPM_PRIVATE', []))
+        if not npm_private_config:
+            self.LOG('No npm private packages defined in config.')
+        return list(set(npm_private_config))
 
     def build_app(self, env_vars, fail_msg):
         """ Builds the app with environment variable."""
@@ -126,6 +152,23 @@ class FrontendBuilder:
                 json.dump(version, output_file)
         except IOError:
             self.FAIL(1, 'Could not write to version file for app {}.'.format(self.app_name))
+
+    def copy_js_config_file_to_app_root(self, app_config, app_name):
+        """ Creates a copy of env.config.js(x) file to the app root """
+        source = app_config.get('JS_CONFIG_FILEPATH')
+
+        # Skip if JS_CONFIG_FILEPATH not defined
+        if not source:
+            return
+
+        filename = app_config.get('LOCAL_JS_CONFIG_FILENAME', "env.config.js")
+        destination = f"{app_name}/{filename}"
+        try:
+            shutil.copyfile(source, destination)
+        except FileNotFoundError:
+            self.FAIL(1, f"Could not find '{source}' for copying for app {app_name}.")
+        except OSError:
+            self.FAIL(1, f"Could not copy '{source}' to '{destination}', due to destination not writable.")
 
 
 class FrontendDeployer:
