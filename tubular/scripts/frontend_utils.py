@@ -108,6 +108,7 @@ class FrontendBuilder:
         """ Combines the common and environment configs APP_CONFIG data """
         app_config = self.common_cfg.get('APP_CONFIG', {})
         app_config.update(self.env_cfg.get('APP_CONFIG', {}))
+        app_config['APP_VERSION'] = self.get_version_commit_sha()
         if not app_config:
             self.LOG('Config variables do not exist for app {}.'.format(self.app_name))
         return app_config
@@ -139,12 +140,16 @@ class FrontendBuilder:
         if build_return_code != 0:
             self.FAIL(1, fail_msg)
 
+    def get_version_commit_sha(self):
+        """ Returns the commit SHA of the current HEAD """
+        return LocalGitAPI(Repo(self.app_name)).get_head_sha()
+
     def create_version_file(self):
         """ Creates a version.json file to be deployed with frontend """
         # Add version.json file to build.
         version = {
             'repo': self.app_name,
-            'commit': LocalGitAPI(Repo(self.app_name)).get_head_sha(),
+            'commit': self.get_version_commit_sha(),
             'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         }
         try:
