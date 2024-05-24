@@ -18,12 +18,13 @@ class TestFrontendBuildConfigHandling(TestCase):
     Cursory tests for frontend config parsing + marshalling.
     """
 
+    @mock.patch.object(FrontendBuilder, 'get_version_commit_sha', return_value ='<COMMIT_HASH>')
     @mock.patch('tubular.scripts.frontend_utils.shutil.copyfile')
     @mock.patch.object(FrontendBuilder, 'create_version_file')
     @mock.patch.object(FrontendBuilder, 'build_app')
     @mock.patch.object(FrontendBuilder, 'install_requirements')
     def test_frontend_build_config_handling(
-            self, mock_install, mock_build, mock_create_version, mock_shutil_copyfile
+            self, mock_install, mock_build, mock_create_version, mock_shutil_copyfile, mock_get_version_commit
     ):
         exit_code = None
         try:
@@ -65,8 +66,10 @@ class TestFrontendBuildConfigHandling(TestCase):
             "NONE='None'",
             "NONE_WITH_QUOTES='None'",
             "JS_CONFIG_FILEPATH='dummy/file/path/env.stage.config.jsx'",
+            "APP_VERSION='<COMMIT_HASH>'"
         ]
         assert mock_create_version.call_count == 1
         assert mock_shutil_copyfile.call_count == 1
+        assert mock_get_version_commit.call_count == 1
         # Verify that source is correct and destination is rightly formatted
         mock_shutil_copyfile.assert_called_with('dummy/file/path/env.stage.config.jsx', 'coolfrontend/env.config.jsx')
