@@ -23,6 +23,10 @@ FAIL = partial(_fail, SCRIPT_SHORTNAME)
 
 @click.command("frontend_deploy")
 @click.option(
+    '--common-config-file',
+    help='File from which common configuration variables are read.',
+)
+@click.option(
     '--env-config-file',
     help='File from which to read environment configuration variables.',
 )
@@ -40,25 +44,28 @@ FAIL = partial(_fail, SCRIPT_SHORTNAME)
     is_flag=True,
     help='Boolean to decide if Cloudflare cache needs to be purged or not.',
 )
-def frontend_deploy(env_config_file, app_name, app_dist, purge_cache):
+def frontend_deploy(common_config_file, env_config_file, app_name, app_dist, purge_cache):
     """
     Copies a frontend application to an s3 bucket.
 
     Args:
+        common_config_file (str): Path to a YAML file containing common configuration variables.
         env_config_file (str): Path to a YAML file containing environment configuration variables.
         app_name (str): Name of the frontend app.
         app_dist (str): Path to frontend application dist directory.
         purge_cache (bool): Should Cloudflare cache needs to be purged.
     """
 
-    if not env_config_file:
-        FAIL(1, 'Environment config file was not specified.')
     if not app_name:
         FAIL(1, 'Frontend application name was not specified.')
     if not app_dist:
         FAIL(1, 'Frontend application dist path was not specified.')
+    if not common_config_file:
+        FAIL(1, 'Common config file was not specified.')
+    if not env_config_file:
+        FAIL(1, 'Environment config file was not specified.')
 
-    deployer = FrontendDeployer(env_config_file, app_name)
+    deployer = FrontendDeployer(common_config_file, env_config_file, app_name)
     bucket_name = deployer.env_cfg.get('S3_BUCKET_NAME')
     if not bucket_name:
         FAIL(1, 'No S3 bucket name configured for {}.'.format(app_name))
