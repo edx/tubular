@@ -26,21 +26,29 @@ from tubular.scripts.helpers import _log, _fail  # pylint: disable=wrong-import-
 MAX_TRIES = 3
 
 
-class FrontendBuilder:
-    """ Utility class for building frontends. """
-    SCRIPT_SHORTNAME = 'Build frontend'
-    LOG = partial(_log, SCRIPT_SHORTNAME)
-    FAIL = partial(_fail, SCRIPT_SHORTNAME)
 
-    def __init__(self, common_config_file, env_config_file, app_name, version_file):
+class FrontendUtils:
+    """
+    Base class for frontend utilities used for both building and
+    deploying frontends, i.e. `FrontendBuilder` and `FrontendDeployer`.
+    """
+
+    def __init__(self, common_config_file, env_config_file, app_name):
         self.common_config_file = common_config_file
         self.env_config_file = env_config_file
         self.app_name = app_name
-        self.version_file = version_file
         self.common_cfg, self.env_cfg = self._get_configs()
 
+    def FAIL(self):
+        """ Placeholder for failure method """
+        raise NotImplementedError
+
+    def LOG(self):
+        """ Placeholder for logging method """
+        raise NotImplementedError
+
     def _get_configs(self):
-        """Loads configs from their paths"""
+        """ Loads configs from their paths """
         try:
             with io.open(self.common_config_file, 'r') as contents:
                 common_vars = yaml.safe_load(contents)
@@ -54,6 +62,35 @@ class FrontendBuilder:
             self.FAIL(1, 'Environment config file could not be opened.')
 
         return (common_vars, env_vars)
+
+    def get_app_config(self):
+        """ Combines the common and environment configs APP_CONFIG data """
+        app_config = self.common_cfg.get('APP_CONFIG', {})
+        app_config.update(self.env_cfg.get('APP_CONFIG', {}))
+        app_config['APP_VERSION'] = self.get_version_commit_sha()
+        if not app_config:
+            self.LOG('Config variables do not exist for app {}.'.format(self.app_name))
+        return app_config
+
+    def get_version_commit_sha(self):
+        """ Returns the commit SHA of the current HEAD """
+        return LocalGitAPI(Repo(self.app_name)).get_head_sha()
+
+
+class FrontendBuilder(FrontendUtils):
+    """ Utility class for building frontends. """
+
+    SCRIPT_SHORTNAME = 'Build frontend'
+    LOG = partial(_log, SCRIPT_SHORTNAME)
+    FAIL = partial(_fail, SCRIPT_SHORTNAME)
+
+    def __init__(self, common_config_file, env_config_file, app_name, version_file):
+        super().__init__(
+            common_config_file=common_config_file,
+            env_config_file=env_config_file,
+            app_name=app_name,
+        )
+        self.version_file = version_file
 
     def install_requirements(self):
         """ Install requirements for app to build """
@@ -104,21 +141,12 @@ class FrontendBuilder:
                     install_list, self.app_name
                 ))
 
-    def get_app_config(self):
-        """ Combines the common and environment configs APP_CONFIG data """
-        app_config = self.common_cfg.get('APP_CONFIG', {})
-        app_config.update(self.env_cfg.get('APP_CONFIG', {}))
-        app_config['APP_VERSION'] = self.get_version_commit_sha()
-        if not app_config:
-            self.LOG('Config variables do not exist for app {}.'.format(self.app_name))
-        return app_config
-
     def get_npm_aliases_config(self):
         """ Combines the common and environment configs NPM_ALIASES data """
         npm_aliases_config = self.common_cfg.get('NPM_ALIASES', {})
         npm_aliases_config.update(self.env_cfg.get('NPM_ALIASES', {}))
         if not npm_aliases_config:
-            self.LOG('No npm package aliases defined in config.')
+            self.LOG('No NPM package aliases defined in config.')
         return npm_aliases_config
 
     def get_npm_private_config(self):
@@ -126,11 +154,11 @@ class FrontendBuilder:
         npm_private_config = self.common_cfg.get('NPM_PRIVATE', [])
         npm_private_config.extend(self.env_cfg.get('NPM_PRIVATE', []))
         if not npm_private_config:
-            self.LOG('No npm private packages defined in config.')
+            self.LOG('No NPM private packages defined in config.')
         return list(set(npm_private_config))
 
     def build_app(self, env_vars, fail_msg):
-        """ Builds the app with environment variable."""
+        """ Builds the app with environment variable. """
         proc = subprocess.Popen(
             ' '.join(env_vars + ['npm run build']),
             cwd=self.app_name,
@@ -139,10 +167,6 @@ class FrontendBuilder:
         build_return_code = proc.wait()
         if build_return_code != 0:
             self.FAIL(1, fail_msg)
-
-    def get_version_commit_sha(self):
-        """ Returns the commit SHA of the current HEAD """
-        return LocalGitAPI(Repo(self.app_name)).get_head_sha()
 
     def create_version_file(self):
         """ Creates a version.json file to be deployed with frontend """
@@ -176,29 +200,15 @@ class FrontendBuilder:
             self.FAIL(1, f"Could not copy '{source}' to '{destination}', due to destination not writable.")
 
 
-class FrontendDeployer:
+class FrontendDeployer(FrontendUtils):
     """ Utility class for deploying frontends. """
 
     SCRIPT_SHORTNAME = 'Deploy frontend'
     LOG = partial(_log, SCRIPT_SHORTNAME)
     FAIL = partial(_fail, SCRIPT_SHORTNAME)
 
-    def __init__(self, env_config_file, app_name):
-        self.env_config_file = env_config_file
-        self.app_name = app_name
-        self.env_cfg = self._get_config()
-
-    def _get_config(self):
-        """Loads config from it's path"""
-        try:
-            with io.open(self.env_config_file, 'r') as contents:
-                env_vars = yaml.safe_load(contents)
-        except IOError:
-            self.FAIL(1, 'Environment config file {} could not be opened.'.format(self.env_config_file))
-        return env_vars
-
-    def deploy_site(self, bucket_name, app_path):
-        """Deploy files to bucket."""
+    def _deploy_to_s3(self, bucket_name, app_path):
+        """ Deploy files to S3 bucket. """
         bucket_uri = 's3://{}'.format(bucket_name)
         proc = subprocess.Popen(
             ' '.join(['aws s3 sync', app_path, bucket_uri, '--delete']),
@@ -207,6 +217,52 @@ class FrontendDeployer:
         return_code = proc.wait()
         if return_code != 0:
             self.FAIL(1, 'Could not sync app {} with S3 bucket {}.'.format(self.app_name, bucket_uri))
+
+    def _upload_js_sourcemaps(self, app_path):
+        """ Upload JavaScript sourcemaps to Datadog. """
+        app_config = self.get_app_config()
+        datadog_api_key = os.environ.get('DATADOG_API_KEY')
+        if not datadog_api_key:
+            # Can't upload source maps without ``DATADOG_API_KEY``, which must be set as an environment variable
+            # before executing the Datadog CLI. The Datadog documentation suggests using a dedicated Datadog API key:
+            # https://docs.datadoghq.com/real_user_monitoring/guide/upload-javascript-source-maps/
+            self.LOG('Could not find DATADOG_API_KEY environment variable while uploading source maps.')
+            return
+
+        service = app_config.get('DATADOG_SERVICE')
+        if not service:
+            self.LOG('Could not find DATADOG_SERVICE for app {} while uploading source maps.'.format(self.app_name))
+
+        # Prioritize app-specific version override, if any, before default APP_VERSION commit SHA version
+        version = app_config.get('DATADOG_VERSION') or app_config.get('APP_VERSION')
+        if not version:
+            self.LOG('Could not find version for app {} while uploading source maps.'.format(self.app_name))
+            return
+
+        command_args = ' '.join([
+            f'--service="{service}"',
+            f'--release-version="{version}"'
+            '--minified-path-prefix="/"',  # Sourcemaps are relative to the root when deployed
+        ])
+        self.LOG('Uploading source maps to Datadog for app {}.'.format(self.app_name))
+        proc = subprocess.Popen(
+            ' '.join([
+                './node_modules/.bin/datadog-ci sourcemaps upload',
+                app_path,
+                command_args,
+            ]),
+            cwd=self.app_name,
+            shell=True,
+        )
+        return_code = proc.wait()
+        if return_code != 0:
+            # If failure occurs, log the error and but don't fail the deployment.
+            self.LOG('Could not upload source maps to Datadog for app {}.'.format(self.app_name))
+
+    def deploy_site(self, bucket_name, app_path):
+        """ Deploy files to bucket. """
+        self._deploy_to_s3(bucket_name, app_path)
+        self._upload_js_sourcemaps(app_path)
         self.LOG('Frontend application {} successfully deployed to {}.'.format(self.app_name, bucket_name))
 
     @backoff.on_exception(backoff.expo,
