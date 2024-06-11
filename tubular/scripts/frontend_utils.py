@@ -277,7 +277,7 @@ class FrontendDeployer(FrontendUtils):
 
         command_args = ' '.join([
             f'--service="{service}"',
-            f'--release-version="{version}"'
+            f'--release-version="{version}"',
             '--minified-path-prefix="/"',  # Sourcemaps are relative to the root when deployed
         ])
         self.LOG('Uploading source maps to Datadog for app {}.'.format(self.app_name))
