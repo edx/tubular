@@ -265,7 +265,7 @@ class FrontendDeployer(FrontendUtils):
             self.LOG('Could not find version for app {} while uploading source maps.'.format(self.app_name))
             return
 
-        # Successfully determined service and version for the deployment and installed ``@datadog/datadog-ci``.
+        # Successfully determined service and version for the app deployment
         return service, version
 
     def _upload_js_sourcemaps(self, app_path):
