@@ -103,7 +103,7 @@ class FrontendBuilder(FrontendUtils):
         self.install_requirements_npm_private()
 
     def install_requirements_npm_aliases(self):
-        """ Install npm alias requirements for app to build """
+        """ Install NPM alias requirements for app to build """
         npm_aliases = self.get_npm_aliases_config()
         if npm_aliases:
             # Install and pin NPM to latest npm@8 version
@@ -126,7 +126,7 @@ class FrontendBuilder(FrontendUtils):
                 ))
 
     def install_requirements_npm_private(self):
-        """ Install npm private requirements for app to build """
+        """ Install NPM private requirements for app to build """
         npm_private = self.get_npm_private_config()
         if npm_private:
             install_list = ' '.join(npm_private)
@@ -218,8 +218,32 @@ class FrontendDeployer(FrontendUtils):
         if return_code != 0:
             self.FAIL(1, 'Could not sync app {} with S3 bucket {}.'.format(self.app_name, bucket_uri))
 
-    def _upload_js_sourcemaps(self, app_path):
-        """ Upload JavaScript sourcemaps to Datadog. """
+    def _get_npm_deploy_config(self):
+        """ Combines the common and environment configs NPM_DEPLOY packages """
+        npm_deploy_config = self.common_cfg.get('NPM_DEPLOY', [])
+        npm_deploy_config.extend(self.env_cfg.get('NPM_DEPLOY', []))
+        if not npm_deploy_config:
+            self.LOG('No NPM packages defined for deployment in config.')
+        return list(set(npm_deploy_config))
+
+    def _install_requirements_npm_deploy(self):
+        """ Install NPM requirements for app to deploy """
+        npm_deploy = self._get_npm_deploy_config()
+        if npm_deploy:
+            install_list = ' '.join(npm_deploy)
+            install_private_proc = subprocess.Popen(
+                [f'npm install {install_list} --no-save'],
+                cwd=self.app_name,
+                shell=True
+            )
+            install_private_proc_return_code = install_private_proc.wait()
+            if install_private_proc_return_code != 0:
+                self.FAIL(1, 'Could not run `npm install {}` for app {}.'.format(
+                    install_list, self.app_name
+                ))
+
+    def _upload_js_sourcemaps_config(self):
+        """ Retrieve config related to uploading JS sourcemaps """
         app_config = self.get_app_config()
         datadog_api_key = os.environ.get('DATADOG_API_KEY')
         if not datadog_api_key:
@@ -232,11 +256,23 @@ class FrontendDeployer(FrontendUtils):
         service = app_config.get('DATADOG_SERVICE')
         if not service:
             self.LOG('Could not find DATADOG_SERVICE for app {} while uploading source maps.'.format(self.app_name))
+            return
 
-        # Prioritize app-specific version override, if any, before default APP_VERSION commit SHA version
+        # Determine version for deployment, prioritizing app-specific version override, if any, before
+        # default APP_VERSION commit SHA version.
         version = app_config.get('DATADOG_VERSION') or app_config.get('APP_VERSION')
         if not version:
             self.LOG('Could not find version for app {} while uploading source maps.'.format(self.app_name))
+            return
+
+        # Successfully determined service and version for the deployment and installed ``@datadog/datadog-ci``.
+        return service, version
+
+    def _upload_js_sourcemaps(self, app_path):
+        """ Upload JavaScript sourcemaps to Datadog. """
+        service, version = self._upload_js_sourcemaps_config()
+        if not service or not version:
+            # Could not determine appropriate service or version for app; skipping.
             return
 
         command_args = ' '.join([
@@ -262,6 +298,7 @@ class FrontendDeployer(FrontendUtils):
     def deploy_site(self, bucket_name, app_path):
         """ Deploy files to bucket. """
         self._deploy_to_s3(bucket_name, app_path)
+        self._install_requirements_npm_deploy()
         self._upload_js_sourcemaps(app_path)
         self.LOG('Frontend application {} successfully deployed to {}.'.format(self.app_name, bucket_name))
 
