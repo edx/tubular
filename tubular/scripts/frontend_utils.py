@@ -279,6 +279,7 @@ class FrontendDeployer(FrontendUtils):
             f'--release-version="{version}"',
             f'--project-path="{self.app_name}/"',
             '--minified-path-prefix="/"',  # Sourcemaps are relative to the root when deployed
+            '--disable-git',
         ])
         self.LOG('Uploading source maps to Datadog for app {}.'.format(self.app_name))
         proc = subprocess.Popen(
