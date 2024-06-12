@@ -207,11 +207,11 @@ class FrontendDeployer(FrontendUtils):
     LOG = partial(_log, SCRIPT_SHORTNAME)
     FAIL = partial(_fail, SCRIPT_SHORTNAME)
 
-    def _deploy_to_s3(self, bucket_name, app_path):
+    def _deploy_to_s3(self, bucket_name, app_dist):
         """ Deploy files to S3 bucket. """
         bucket_uri = 's3://{}'.format(bucket_name)
         proc = subprocess.Popen(
-            ' '.join(['aws s3 sync', app_path, bucket_uri, '--delete']),
+            ' '.join(['aws s3 sync', app_dist, bucket_uri, '--delete']),
             shell=True
         )
         return_code = proc.wait()
@@ -268,12 +268,24 @@ class FrontendDeployer(FrontendUtils):
         # Successfully determined service and version for the app deployment
         return service, version
 
-    def _upload_js_sourcemaps(self, app_path):
+    def _upload_js_sourcemaps(self, app_dist):
         """ Upload JavaScript sourcemaps to Datadog. """
         service, version = self._upload_js_sourcemaps_config()
         if not service or not version:
             # Could not determine appropriate service or version for app; skipping.
             return
+
+        # [DEBUG] Temporarily log the current working directory
+        cwd = os.getcwd()
+        self.LOG(f'[DEBUG] Current working directory: {cwd}')
+
+        # [DEBUG] Temporarily log the files in `app_dist` to observe which files are returned.
+        dist_files = os.listdir(app_dist)
+        self.LOG(f'[DEBUG] app_dist contents: {dist_files}')
+
+        # [DEBUG] Temporarily log the files in current working directory to observe which files are returned.
+        cwd_files = os.listdir(cwd)
+        self.LOG(f'[DEBUG] current working directory contents: {cwd_files}')
 
         command_args = ' '.join([
             f'--service="{service}"',
@@ -285,7 +297,7 @@ class FrontendDeployer(FrontendUtils):
         proc = subprocess.Popen(
             ' '.join([
                 './node_modules/.bin/datadog-ci sourcemaps upload',
-                app_path,
+                app_dist,
                 command_args,
             ]),
             cwd=self.app_name,
@@ -296,11 +308,11 @@ class FrontendDeployer(FrontendUtils):
             # If failure occurs, log the error and but don't fail the deployment.
             self.LOG('Could not upload source maps to Datadog for app {}.'.format(self.app_name))
 
-    def deploy_site(self, bucket_name, app_path):
+    def deploy_site(self, bucket_name, app_dist):
         """ Deploy files to bucket. """
-        self._deploy_to_s3(bucket_name, app_path)
+        self._deploy_to_s3(bucket_name, app_dist)
         self._install_requirements_npm_deploy()
-        self._upload_js_sourcemaps(app_path)
+        self._upload_js_sourcemaps(app_dist)
         self.LOG('Frontend application {} successfully deployed to {}.'.format(self.app_name, bucket_name))
 
     @backoff.on_exception(backoff.expo,
