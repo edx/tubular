@@ -250,19 +250,19 @@ class FrontendDeployer(FrontendUtils):
             # before executing the Datadog CLI. The Datadog documentation suggests using a dedicated Datadog API key:
             # https://docs.datadoghq.com/real_user_monitoring/guide/upload-javascript-source-maps/
             self.LOG('Could not find DATADOG_API_KEY environment variable while uploading source maps.')
-            return
+            return None, None
 
         service = app_config.get('DATADOG_SERVICE')
         if not service:
             self.LOG('Could not find DATADOG_SERVICE for app {} while uploading source maps.'.format(self.app_name))
-            return
+            return None, None
 
         # Determine version for deployment, prioritizing app-specific version override, if any, before
         # default APP_VERSION commit SHA version.
         version = app_config.get('DATADOG_VERSION') or app_config.get('APP_VERSION')
         if not version:
             self.LOG('Could not find version for app {} while uploading source maps.'.format(self.app_name))
-            return
+            return service, None
 
         # Successfully determined service and version for the app deployment
         return service, version
