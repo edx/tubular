@@ -274,23 +274,12 @@ class FrontendDeployer(FrontendUtils):
             # Could not determine appropriate service or version for app; skipping.
             return
 
-        # [DEBUG] Temporarily log the current working directory
-        cwd = os.getcwd()
-        self.LOG(f'[DEBUG] Current working directory: {cwd}')
-
-        # [DEBUG] Temporarily log the files in `app_dist` to observe which files are returned.
-        dist_files = os.listdir(app_dist)
-        self.LOG(f'[DEBUG] app_dist contents: {dist_files}')
-
-        # [DEBUG] Temporarily log the files in current working directory to observe which files are returned.
-        cwd_files = os.listdir(cwd)
-        self.LOG(f'[DEBUG] current working directory contents: {cwd_files}')
-
         command_args = ' '.join([
             f'--service="{service}"',
             f'--release-version="{version}"',
             f'--project-path="{self.app_name}/"',
             '--minified-path-prefix="/"',  # Sourcemaps are relative to the root when deployed
+            '--disable-git',  # Disable Datadog's git integration as the current working directory is not a git repo
         ])
         self.LOG('Uploading source maps to Datadog for app {}.'.format(self.app_name))
         proc = subprocess.Popen(
