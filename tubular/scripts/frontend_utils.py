@@ -233,7 +233,6 @@ class FrontendDeployer(FrontendUtils):
             install_list = ' '.join(npm_deploy)
             install_private_proc = subprocess.Popen(
                 [f'npm install {install_list} --no-save'],
-                cwd=self.app_name,
                 shell=True
             )
             install_private_proc_return_code = install_private_proc.wait()
@@ -300,7 +299,6 @@ class FrontendDeployer(FrontendUtils):
                 app_dist,
                 command_args,
             ]),
-            cwd=self.app_name,
             shell=True,
         )
         return_code = proc.wait()
