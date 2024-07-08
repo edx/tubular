@@ -21,8 +21,8 @@ from six import text_type
 # Add top-level module path to sys.path before importing tubular code.
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from tubular.edx_api import CredentialsApi, DemographicsApi, EcommerceApi, LicenseManagerApi, \
-    LmsApi  # pylint: disable=wrong-import-position
+from tubular.edx_api import CommerceCoordinatorApi, CredentialsApi, DemographicsApi, \
+    EcommerceApi, LicenseManagerApi, LmsApi  # pylint: disable=wrong-import-position
 from tubular.braze_api import BrazeApi  # pylint: disable=wrong-import-position
 from tubular.segment_api import SegmentApi  # pylint: disable=wrong-import-position
 from tubular.salesforce_api import SalesforceApi  # pylint: disable=wrong-import-position
@@ -142,10 +142,10 @@ def _setup_lms_api_or_exit(fail_func, fail_code, config):
 
 def _setup_all_apis_or_exit(fail_func, fail_code, config):
     """
-    Performs setup of EdxRestClientApi instances for LMS, E-Commerce, Credentials, and
-    Demographics, as well as fetching the learner's record from LMS and validating that
-    it is in a state to work on. Returns the learner dict and their current stage in the
-    retirement flow.
+    Performs setup of EdxRestClientApi instances for LMS, E-Commerce, Credentials,
+    Demographics, and Commerce-Coordinator, as well as fetching the learner's
+    record from LMS and validating that it is in a state to work on. Returns the
+    learner dict and their current stage in the retirement flow.
     """
     try:
         lms_base_url = config['base_urls']['lms']
@@ -154,6 +154,7 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
         segment_base_url = config['base_urls'].get('segment', None)
         demographics_base_url = config['base_urls'].get('demographics', None)
         license_manager_base_url = config['base_urls'].get('license_manager', None)
+        commerce_coordinator_base_url = config['base_urls'].get('commerce_coordinator', None)
         client_id = config['client_id']
         client_secret = config['client_secret']
         braze_api_key = config.get('braze_api_key', None)
@@ -180,7 +181,8 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
                     ('CREDENTIALS', credentials_base_url),
                     ('SEGMENT', segment_base_url),
                     ('HUBSPOT', hubspot_api_key),
-                    ('DEMOGRAPHICS', demographics_base_url)
+                    ('DEMOGRAPHICS', demographics_base_url),
+                    ('COMMERCE_COORDINATOR', commerce_coordinator_base_url)
             ):
                 if state[2] == service and service_url is None:
                     fail_func(fail_code, 'Service URL is not configured, but required for state {}'.format(state))
@@ -239,5 +241,8 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
                 segment_auth_token,
                 segment_workspace_slug
             )
+
+        if commerce_coordinator_base_url:
+            config['COMMERCE_COORDINATOR'] = CommerceCoordinatorApi(lms_base_url, commerce_coordinator_base_url , client_id, client_secret)
     except Exception as exc:  # pylint: disable=broad-except
         fail_func(fail_code, 'Unexpected error occurred!', exc)
