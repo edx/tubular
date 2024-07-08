@@ -578,7 +578,7 @@ class TestCommerceCoordinatorApi(OAuth2Mixin, unittest.TestCase):
             'the_client_secret'
         )
 
-    @patch.object(edx_api.DemographicsApi, 'retire_learner')
+    @patch.object(edx_api.CommerceCoordinatorApi, 'retire_learner')
     def test_retire_learner(self, mock_method):
         json_data = {
             'lms_user_id': get_fake_user_retirement()['user']['id']
