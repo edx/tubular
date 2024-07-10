@@ -529,6 +529,6 @@ class CommerceCoordinatorApi(BaseApiClient):
         Performs the learner retirement step for Commerce-Coordinator.
         Passes the learner's LMS User Id instead of username.
         """
-        data = {'lms_user_id': learner['user']['id']}
+        data = {'edx_lms_user_id': learner['user']['id']}
         api_url = self.get_api_url('lms/user_retirement')
         return self._request('POST', api_url, json=data)
