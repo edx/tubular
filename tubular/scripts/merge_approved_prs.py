@@ -1,7 +1,11 @@
 #! /usr/bin/env python3
 
 """
-Command-line script to trigger a jenkins job
+Script to merge private patches into a temporary commit for deployment.
+
+This is intended to be used with edx/edx-platform-private according to
+2U's private patch process:
+https://2u-internal.atlassian.net/wiki/spaces/ENG/pages/19466701/LMS+Studio+Security+Fix+Process
 """
 from datetime import datetime
 import logging
@@ -145,7 +149,14 @@ def octomerge(
                     for pr in approved_prs
                 )
             ))
-            local_repo.octopus_merge(target_branch, [pr.head.sha for pr in approved_prs])
+            try:
+                local_repo.octopus_merge(target_branch, [pr.head.sha for pr in approved_prs])
+            except BaseException as e:
+                logging.error(
+                    "Merging of private PRs failed; see this runbook for hints: "
+                    "https://2u-internal.atlassian.net/wiki/spaces/ENG/pages/19466701/LMS+Studio+Security+Fix+Process#Deployments-are-failing-in-the-build_edxapp_amis%2Fprerelease_materials_job-step-in-GoCD"
+                )
+                raise e
         else:
             logging.info("No PRs to merge")
 
