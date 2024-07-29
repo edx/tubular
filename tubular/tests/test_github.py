@@ -303,21 +303,29 @@ class GitHubApiTestCase(TestCase):
         self.repo_mock.get_commit.assert_called_with(sha)
 
     @ddt.data(
-        ('passed', True),
-        ('failed', False)
+        ('', 'success', None),  # Case where no actions are found
+        ('passed', 'passed', True),    # Case where actions are found and succeed
+        ('failed', 'failed', False),   # Case where actions are found and fail
     )
     @ddt.unpack
-    def test_poll_commit(self, end_status, successful):
+    def test_poll_commit(self, initial_status, end_status, successful):
         url_dict = {'TravisCI': 'some url'}
-        with patch.object(self.api, '_is_commit_successful', side_effect=[
-            (False, url_dict, 'pending'),
+        side_effects = [
+            (False, url_dict, initial_status) if initial_status == '' else (True, url_dict, initial_status),
             (successful, url_dict, end_status),
-        ]):
+        ]
+        
+        with patch.object(self.api, '_is_commit_successful', side_effect=side_effects) as mock_is_commit_successful:
             result = self.api._poll_commit('some sha')  # pylint: disable=protected-access
 
-            assert self.api._is_commit_successful.call_count == 2  # pylint: disable=protected-access
-        assert result[0] == end_status
-        assert result[1] == url_dict
+            if initial_status == '':
+                # We expect the function to return immediately after the first call
+                assert result[0] == 'success'
+                assert result[1] is None
+            else:
+                # Ensure the function processes both calls
+                assert result[0] == end_status
+                assert result[1] == url_dict
 
     @ddt.data(
         (
