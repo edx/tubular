@@ -591,8 +591,11 @@ class GitHubAPI:
         )
         def _run():
             result = self._is_commit_successful(sha)
+            if result[0] == False:  # No Checks found against the Commit
+                # Returning any string other than '' will set the commit status to succeed. 
+                # Returning 'success' to avoid breaking pipeline checks in case no actions are found
+                return ("success", None)
             return (result[2], result[1])
-
         return _run()
 
     def poll_pull_request_test_status(self, pr_number):
