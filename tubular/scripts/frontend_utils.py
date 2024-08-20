@@ -106,11 +106,11 @@ class FrontendBuilder(FrontendUtils):
         """ Install NPM alias requirements for app to build """
         npm_aliases = self.get_npm_aliases_config()
         if npm_aliases:
-            # Install and pin NPM to latest npm@8 version
-            proc = subprocess.Popen(['npm install npm@8'], cwd=self.app_name, shell=True)
+            # Install and pin NPM to latest npm@10 version
+            proc = subprocess.Popen(['npm install npm@10'], cwd=self.app_name, shell=True)
             return_code = proc.wait()
             if return_code != 0:
-                self.FAIL(1, 'Could not run `npm install npm@8` for app {}.'.format(self.app_name))
+                self.FAIL(1, 'Could not run `npm install npm@10` for app {}.'.format(self.app_name))
 
             aliased_installs = ' '.join(['{}@{}'.format(k, v) for k, v in npm_aliases.items()])
             # Use the locally installed npm at ./node_modules/.bin/npm
