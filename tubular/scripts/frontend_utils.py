@@ -109,7 +109,7 @@ class FrontendBuilder(FrontendUtils):
             aliased_installs = ' '.join(['{}@{}'.format(k, v) for k, v in npm_aliases.items()])
             # Use the locally installed npm at ./node_modules/.bin/npm to install aliases
             install_aliases_proc = subprocess.Popen(
-                ['./node_modules/.bin/npm install {}'.format(aliased_installs)],
+                ['npm install {}'.format(aliased_installs)],
                 cwd=self.app_name,
                 shell=True
             )
