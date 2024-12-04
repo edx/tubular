@@ -36,7 +36,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
     '''
     PUBLIC_TEST_ID = "sad-hqu-h33"
 
-    print("In run_synthetic_tests")
+    logging.info("****** In run_synthetic_tests")
     sys.exit(1) # To test that this script is actually being run
 
     if enable_automated_rollbacks:
@@ -55,7 +55,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
 
         # Fetch and print the test results
         test_results = dd_client.get_test_results(test_run_id, test_requests)
-        print("Test results:", test_results)
+        logging.info("****** Test results:", test_results)
 
     except Exception as e:
         print("An error occurred:", str(e))
