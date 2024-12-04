@@ -36,6 +36,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
     '''
     PUBLIC_TEST_ID = "sad-hqu-h33"
 
+    print("In run_synthetic_tests")
     sys.exit(1) # To test that this script is actually being run
 
     if enable_automated_rollbacks:
