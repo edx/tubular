@@ -191,4 +191,4 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
     return "Datadog synthetic test ran"
 
 if __name__ == "__main__":
-    run_synthetic_tests(false, None)   # pylint: disable=no-value-for-parameter
+    run_synthetic_tests(False, None)   # pylint: disable=no-value-for-parameter
