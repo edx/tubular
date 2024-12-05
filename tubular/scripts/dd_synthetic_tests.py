@@ -14,7 +14,7 @@ Command-line script to run Datadog synthetic tests in the production enviornment
 """
 
 # logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-logging.basicConfig(filename='console.log', level=logging.INFO)
+logging.basicConfig(filename='cruise-output/console.log', level=logging.INFO)
 
 @click.option(
     '--enable-automated-rollbacks',
