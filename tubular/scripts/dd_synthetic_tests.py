@@ -38,6 +38,9 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
 
     logging.info("****** In run_synthetic_tests")
     print("******* In run_synthetic_tests ******")
+    with open("bis_artifact.log", "w") as file:
+        file.write"******* In run_synthetic_tests ******")
+        
     sys.exit(1) # To test that this script is actually being run
 
     if enable_automated_rollbacks:
