@@ -6,8 +6,8 @@ import logging
 import os
 import sys
 
-from .datadog_client import DatadogClient
-from .datadog_client import SyntheticTestRequest
+from tubular.scripts.datadog_client import DatadogClient
+from tubular.scripts.datadog_client import SyntheticTestRequest
 
 """
 Command-line script to run Datadog synthetic tests in the production enviornment and then slack notify and/or roll back
