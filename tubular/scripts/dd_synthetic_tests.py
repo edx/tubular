@@ -134,8 +134,7 @@ class DatadogClient:
 Command-line script to run Datadog synthetic tests in the production enviornment and then slack notify and/or roll back
 """
 
-# logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-logging.basicConfig(filename='cruise-output/console.log', level=logging.INFO)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 @click.option(
     '--enable-automated-rollbacks',
