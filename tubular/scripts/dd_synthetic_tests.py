@@ -53,7 +53,8 @@ class DatadogClient:
             aggregate_test_run_id = result['result_id']
             return aggregate_test_run_id
 
-        raise Exception("Unexpected Datadog results")
+        except Exception as e:
+            raise Exception("Unexpected Datadog results: " + str(e))
 
     def get_test_results(self, test_run_id, test_requests):
         '''
