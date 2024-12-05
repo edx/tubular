@@ -13,7 +13,8 @@ from datadog_client import SyntheticTestRequest
 Command-line script to run Datadog synthetic tests in the production enviornment and then slack notify and/or roll back
 """
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+# logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logging.basicConfig(filename='console.log', level=logging.INFO)
 
 @click.option(
     '--enable-automated-rollbacks',
@@ -40,7 +41,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
     print("******* In run_synthetic_tests ******")
     with open("bis_artifact.log", "w") as file:
         file.write"******* In run_synthetic_tests ******")
-        
+
     sys.exit(1) # To test that this script is actually being run
 
     if enable_automated_rollbacks:
