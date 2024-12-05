@@ -171,9 +171,11 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
 
         # Prepare and trigger the synthetic test request
         test_requests = [SyntheticTestRequest("Hello, world test", PUBLIC_TEST_ID)]
+        logging.info("*** Triggering synthetic tests ***")
         test_run_id = dd_client.trigger_synthetic_tests(test_requests)
 
         # Fetch and print the test results
+        logging.info("*** Getting test results ***")
         test_results = dd_client.get_test_results(test_run_id, test_requests)
         logging.info("****** Test results:", test_results)
 
