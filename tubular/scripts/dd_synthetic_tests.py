@@ -158,17 +158,10 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
     PUBLIC_TEST_ID = "sad-hqu-h33"
 
     logging.info("****** In run_synthetic_tests")
-    print("******* In run_synthetic_tests ******")
-    sys.stdout.flush()
-    with open("bis_artifact.log", "w") as file:
-        file.write("******* In run_synthetic_tests ******")
-        file.flush()
 
     if enable_automated_rollbacks:
         logging.Error("Automated rollbacks are not yet supported")
-        exit()
-
-    sys.exit(1) # To test that this script is actually being run
+        sys.exit(1)
 
     try:
         # Will use the Datadog API to run synthetic tests
