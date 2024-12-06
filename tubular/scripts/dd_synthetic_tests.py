@@ -188,7 +188,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
         print("An error occurred:", str(e))
         exit()
 
-    return 0
+    sys.exit(1)
 
 if __name__ == "__main__":
     run_synthetic_tests(False, None)   # pylint: disable=no-value-for-parameter
