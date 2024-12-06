@@ -85,7 +85,7 @@ class DatadogClient:
         if single_test_json_result is None:
             raise Exception("The test run timed out.")
 
-        logging.info("*** Test result found ***")
+        logging.info(f"*** Test result found: {single_test_json_result=} ***")
         return single_test_json_result
 
     def _get_single_test_json_result(self, test_run_id, test_id):
