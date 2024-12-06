@@ -125,6 +125,7 @@ class DatadogClient:
         """
         aggregate_results = input_json['results']
         result = [r for r in aggregate_results if r['result_id'] == test_run_id]
+        logging.info(f"*** Parsing pass/fail: {result=} ***")
         if result is not None:
             test_run_data = result['result']
             logging.info(f"*** Found result for {test_run_id=}: {test_run_data} ***")
