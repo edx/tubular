@@ -45,7 +45,7 @@ class DatadogClient:
         response = requests.post(url, headers=headers, json=json_request_body)
 
         if response.status_code != 200:
-            raise Exception("Datadog API error")
+            raise Exception(f"Datadog API error. Status = {response.status_code}")
 
         try:
             response_body = response.json()
