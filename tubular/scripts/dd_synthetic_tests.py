@@ -66,29 +66,29 @@ class DatadogClient:
         '''
         json_test_run_results = None
         for request in test_requests:
-            json_test_run_results = self._wait_for_test(test_run_id, request.test_id)
+            json_test_run_results = self._get_result_via_polling(test_run_id, request.test_id)
 
         return json_test_run_results  # TODO: Create and return array of results; don't just return the last one
 
-    def _wait_for_test(self, test_run_id, test_id):
+    def _get_result_via_polling(self, test_run_id, test_id):
         """
         Poll for aggregate test run completion within the maximum allowable time.
         Returns the JSON structure with all test run results.
         """
         start_time = time.time()
-        json_test_on_test_run_result = None
-        while json_test_on_test_run_result is None and (time.time() - start_time) < (self.MAX_ALLOWABLE_TIME_SECS):
+        single_test_json_result = None
+        while single_test_json_result is None and (time.time() - start_time) < (self.MAX_ALLOWABLE_TIME_SECS):
             time.sleep(5)  # Poll every 5 seconds
             logging.info("*** Testing whether DD result is available ***")
-            json_test_on_test_run_result = self._get_json_test_on_test_run_result(test_run_id, test_id)
+            single_test_json_result = self._get_single_test_json_result(test_run_id, test_id)
 
-        if json_test_on_test_run_result is None:
+        if single_test_json_result is None:
             raise Exception("The test run timed out.")
 
         logging.info("*** Test result found ***")
-        return json_test_on_test_run_result
+        return single_test_json_result
 
-    def _get_json_test_on_test_run_result(self, test_run_id, test_id):
+    def _get_single_test_json_result(self, test_run_id, test_id):
         """
         returns JSON structure if test run has completed; returns None otherwise
         """
@@ -104,7 +104,8 @@ class DatadogClient:
             return None
 
         response_json = response.json()
-        return self._get_pass_fail_result(response_json, test_run_id)
+        return response_json
+        # return self._get_pass_fail_result(response_json, test_run_id)
 
     @staticmethod
     def _json_get_test_run_id(json_response):
