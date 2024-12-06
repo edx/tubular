@@ -182,7 +182,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
         # Fetch and print the test results
         logging.info("*** Getting test results ***")
         test_results = dd_client.get_test_results(test_run_id, test_requests)
-        logging.info("****** Test results:", str(test_results))
+        logging.info(f"****** Test results: {test_results}")
 
     except Exception as e:
         print("An error occurred:", str(e))
