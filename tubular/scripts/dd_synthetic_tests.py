@@ -104,6 +104,7 @@ class DatadogClient:
             return None
 
         response_json = response.json()
+        logging.info(f"*** {test_run_id=} ***")
         return response_json
         # return self._get_pass_fail_result(response_json, test_run_id)
 
