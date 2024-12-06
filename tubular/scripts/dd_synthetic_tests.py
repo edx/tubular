@@ -79,12 +79,13 @@ class DatadogClient:
         json_test_on_test_run_result = None
         while json_test_on_test_run_result is None and (time.time() - start_time) < (self.MAX_ALLOWABLE_TIME_SECS):
             time.sleep(5)  # Poll every 5 seconds
-            print("Testing on DD result")
+            logging.info("*** Testing whether DD result is available ***")
             json_test_on_test_run_result = self._get_json_test_on_test_run_result(test_run_id, test_id)
 
         if json_test_on_test_run_result is None:
             raise Exception("The test run timed out.")
 
+        logging.info("*** Test result found ***")
         return json_test_on_test_run_result
 
     def _get_json_test_on_test_run_result(self, test_run_id, test_id):
@@ -177,7 +178,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
         # Fetch and print the test results
         logging.info("*** Getting test results ***")
         test_results = dd_client.get_test_results(test_run_id, test_requests)
-        logging.info("****** Test results:", test_results)
+        logging.info("****** Test results:", str(test_results))
 
     except Exception as e:
         print("An error occurred:", str(e))
