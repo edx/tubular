@@ -33,7 +33,7 @@ class DatadogClient:
         :param test_requests: List of tests to be run
         :return: An opaque aggregate run request identifier
         '''
-        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/trigger/ci"
+        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/trigger"
         headers = {
             "Content-Type": "application/json",
             "DD-API-KEY": self.api_key,
