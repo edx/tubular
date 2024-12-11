@@ -103,7 +103,7 @@ class DatadogClient:
 
         response_json = response.json()
         logging.info(f'Response for test {test_id} = {response_json}')
-        return response_json['passed']
+        return response_json['result']['passed']
 
 """
 Command-line script to run Datadog synthetic tests in the production enviornment and then slack notify and/or roll back
