@@ -141,7 +141,8 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
 
         # Prepare and trigger the synthetic test request
         # PUBLIC_TEST_ID = "sad-hqu-h33"
-        tests_to_run = json.loads(os.getenv("TESTS_TO_RUN"))
+        # tests_to_run = json.loads(os.getenv("TESTS_TO_RUN"))
+        tests_to_run = [{"name": "Hello, world test", "id": "sad-hqu-h33"}]
         logging.info(f"Running the following tests: {str(tests_to_run)}")
 
         dd_client.trigger_synthetic_tests(tests_to_run)
