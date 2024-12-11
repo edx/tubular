@@ -147,7 +147,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
 
         dd_client.trigger_synthetic_tests(tests_to_run)
 
-        failed_tests = dd_client.get_failed_tests()
+        failed_tests = dd_client.get_failed_tests(tests_to_run)
         for failed_test in failed_tests:
             logging.warning(f'Test {failed_test["name"]}({failed_test["id"]}) failed')
 
