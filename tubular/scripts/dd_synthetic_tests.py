@@ -15,7 +15,7 @@ class DatadogClient:
 
     DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
     DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
-    MAX_ALLOWABLE_TIME_SECS = 300 # 5 minutes
+    MAX_ALLOWABLE_TIME_SECS = 600 # 10 minutes
 
     def __init__(self, api_key, app_key):
         self.api_key = api_key
@@ -63,6 +63,10 @@ class DatadogClient:
         :return: A list of the test ids for the tests that failed; Empty list if all tests passed
         '''
         failed_tests = []
+        time.sleep(120)
+        self._get_batch_result(self.test_run_id)
+        logging.info("Done getting batch result")
+
         for test in test_requests:
             test_result = self._poll_for_test_result(test['id'])
             if test_result == False:
@@ -89,6 +93,22 @@ class DatadogClient:
         completion_time = time.time()
         logging.info(f'Test {test_id} finished at time {completion_time} with {test_result=}')
         return test_result
+
+    def _get_batch_result(self, test_run_id):
+        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/ci/batch/{self.test_run_id}"
+        headers = {
+            "DD-API-KEY": self.api_key,
+            "DD-APPLICATION-KEY": self.app_key
+        }
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code != 200:
+            return None
+
+        response_json = response.json()
+        logging.info(f"Response for batch = {response_json}")
+
 
     def _get_test_result(self, test_id):
         """
@@ -148,15 +168,6 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
         # PUBLIC_TEST_ID = "sad-hqu-h33"
         # tests_to_run = json.loads(os.getenv("TESTS_TO_RUN"))
         tests_to_run = [
-
-                        {
-                            "name":
-                             '''
-                             edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
-                             course’s landing page, and sees the “Enroll Now” screen
-                             ''',
-                             "id": "zkx-36f-kui"
-                        },
                         {
                             "name":
                                 '''
@@ -164,6 +175,14 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
                                 Logistration page (authn.edx.org) when trying to access content behind log-in wall
                                 ''',
                             "id": "6tq-u28-hwa"
+                        },
+                        {
+                            "name":
+                             '''
+                             edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
+                             course’s landing page, and sees the “Enroll Now” screen
+                             ''',
+                             "id": "zkx-36f-kui"
                         },
                         {
                             "name":
