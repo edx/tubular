@@ -102,7 +102,7 @@ class DatadogClient:
             return None
 
         response_json = response.json()
-        logging.info(f'Response for test {test_id} = {response_json}')
+        logging.info(f'Response for test {test_id} = {json.dumps(response, indent=4)}')
         return response_json['result']['passed']
 
 """
