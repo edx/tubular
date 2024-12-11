@@ -148,14 +148,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
         # PUBLIC_TEST_ID = "sad-hqu-h33"
         # tests_to_run = json.loads(os.getenv("TESTS_TO_RUN"))
         tests_to_run = [
-                        {
-                            "name":
-                             '''
-                             edX Smoke Test - [Anonymous user] An anonymous user is directed to the
-                             Logistration page (authn.edx.org) when trying to access content behind log-in wall
-                             ''',
-                            "id": "6tq-u28-hwa"
-                         },
+
                         {
                             "name":
                              '''
@@ -163,6 +156,14 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
                              course’s landing page, and sees the “Enroll Now” screen
                              ''',
                              "id": "zkx-36f-kui"
+                        },
+                        {
+                            "name":
+                                '''
+                                edX Smoke Test - [Anonymous user] An anonymous user is directed to the
+                                Logistration page (authn.edx.org) when trying to access content behind log-in wall
+                                ''',
+                            "id": "6tq-u28-hwa"
                         },
                         {
                             "name":
