@@ -63,9 +63,12 @@ class DatadogClient:
         :return: A list of the test ids for the tests that failed; Empty list if all tests passed
         '''
         failed_tests = []
-        time.sleep(120)
-        self._get_batch_result(self.test_run_id)
-        logging.info("Done getting batch result")
+        batch_result = None
+        while batch_result is None and (time.time() - self.trigger_time) < (self.MAX_ALLOWABLE_TIME_SECS):
+            time.sleep(5)  # Poll every 5 seconds
+            batch_result = self._get_batch_result()
+        logging.info(f"Done getting batch result at time {time.time()}")
+        logging.info(f"Batch result: {batch_result}")
 
         for test in test_requests:
             test_result = self._poll_for_test_result(test['id'])
@@ -94,7 +97,7 @@ class DatadogClient:
         logging.info(f'Test {test_id} finished at time {completion_time} with {test_result=}')
         return test_result
 
-    def _get_batch_result(self, test_run_id):
+    def _get_batch_result(self):
         url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/ci/batch/{self.test_run_id}"
         headers = {
             "DD-API-KEY": self.api_key,
@@ -104,10 +107,11 @@ class DatadogClient:
         response = requests.get(url, headers=headers)
 
         if response.status_code != 200:
+            logging.info(f"Get batch results returned status of {response.status_code}")
             return None
 
         response_json = response.json()
-        logging.info(f"Response for batch = {response_json}")
+        return response_json
 
 
     def _get_test_result(self, test_id):
