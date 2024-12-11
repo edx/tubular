@@ -14,6 +14,7 @@ class DatadogClient:
     ''' Invokes datadog API to run and monitor synthetic tests '''
 
     DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
+    DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
     MAX_ALLOWABLE_TIME_SECS = 300 # 5 minutes
 
     def __init__(self, api_key, app_key):
@@ -31,7 +32,7 @@ class DatadogClient:
         if self.test_run_id:
             raise Exception("Datadog error: tests already triggered")
 
-        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/trigger"
+        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/trigger/ci"
         headers = {
             "Content-Type": "application/json",
             "DD-API-KEY": self.api_key,
