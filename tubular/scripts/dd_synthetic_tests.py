@@ -36,7 +36,7 @@ class DatadogClient:
             "DD-API-KEY": self.api_key,
             "DD-APPLICATION-KEY": self.app_key
         }
-        json_request_body = {"tests": [{"public_id": t.id} for t in test_requests]}
+        json_request_body = {"tests": [{"public_id": t['id']} for t in test_requests]}
         response = requests.post(url, headers=headers, json=json_request_body)
 
         if response.status_code != 200:
