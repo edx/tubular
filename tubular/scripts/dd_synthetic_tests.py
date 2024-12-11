@@ -51,6 +51,7 @@ class DatadogClient:
             logging.info(f"Datadog test run launched: {aggregate_test_run_id}")
             self.test_run_id = aggregate_test_run_id
             self.trigger_time = time.time() # Key timeouts off of this
+            logging.info(f'Tests triggered at time {self.trigger_time}')
 
         except Exception as e:
             raise Exception("Datadog error on triggering tests: " + str(e))
@@ -85,6 +86,8 @@ class DatadogClient:
         if test_result is None:
             raise Exception("The test run timed out.")
 
+        completion_time = time.time()
+        logging.info(f'Test {test_id} finished at time {completion_time} with {test_result=}')
         return test_result
 
     def _get_test_result(self, test_id):
@@ -104,7 +107,7 @@ class DatadogClient:
             return None
 
         response_json = response.json()
-        logging.info(f"Response for test {test_id} = {response_json['result']}")
+        # logging.info(f"Response for test {test_id} = {response_json['result']}")
         return response_json['result']['passed']
 
 """
