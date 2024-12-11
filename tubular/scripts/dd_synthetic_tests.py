@@ -46,9 +46,9 @@ class DatadogClient:
 
         try:
             response_body = response.json()
-            result = response_body['results'][0]
+            # result = response_body['results'][0]
             # aggregate_test_run_id = result['result_id']
-            aggregate_test_run_id = result['batch_id']
+            aggregate_test_run_id = response_body['batch_id']
             logging.info(f"Datadog test run launched: {aggregate_test_run_id}")
             self.test_run_id = aggregate_test_run_id
             self.trigger_time = time.time() # Key timeouts off of this
