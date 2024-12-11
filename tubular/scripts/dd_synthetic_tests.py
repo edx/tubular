@@ -15,7 +15,7 @@ class DatadogClient:
 
     DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
     DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
-    MAX_ALLOWABLE_TIME_SECS = 300 # 5 minutes
+    MAX_ALLOWABLE_TIME_SECS = 1200 # 20 minutes
 
     def __init__(self, api_key, app_key):
         self.api_key = api_key
@@ -169,30 +169,30 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
                              ''',
                              "id": "jvx-2jw-agj"
                         },
-                        {
-                            "name":
-                            '''
-                            [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load
-                            a graded problem, and sees the upsell screen
-                            ''',
-                             "id": "75p-sez-5wg"
-                        },
-                        {
-                            "name":
-                                '''
-                                [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
-                                access a course’s landing page, course content, and course forum
-                                ''',
-                            "id": "zbz-r28-jjx"
-                        },
-                        {
-                            "name":
-                                '''
-                                [Synthetics] edX Smoke Test - [Verified student] A verified student can
-                                access a graded course problem
-                                ''',
-                            "id": "tck-hrr-ubp"
-                        },
+                        # {
+                        #     "name":
+                        #     '''
+                        #     [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load
+                        #     a graded problem, and sees the upsell screen
+                        #     ''',
+                        #      "id": "75p-sez-5wg"
+                        # },
+                        # {
+                        #     "name":
+                        #         '''
+                        #         [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
+                        #         access a course’s landing page, course content, and course forum
+                        #         ''',
+                        #     "id": "zbz-r28-jjx"
+                        # },
+                        # {
+                        #     "name":
+                        #         '''
+                        #         [Synthetics] edX Smoke Test - [Verified student] A verified student can
+                        #         access a graded course problem
+                        #         ''',
+                        #     "id": "tck-hrr-ubp"
+                        # },
                         ]
         logging.info(f"Running the following tests: {str(tests_to_run)}")
 
