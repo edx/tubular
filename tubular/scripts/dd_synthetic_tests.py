@@ -13,7 +13,7 @@ class DatadogClient:
     ''' Invokes datadog API to run and monitor synthetic tests '''
 
     DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
-    MAX_ALLOWABLE_TIME_SECS = 60 # 1 minute
+    MAX_ALLOWABLE_TIME_SECS = 300 # 5 minutes
 
     def __init__(self, api_key, app_key):
         self.api_key = api_key
