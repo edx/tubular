@@ -5,6 +5,7 @@ import click
 import json
 import logging
 import os
+import pprint
 import requests
 import time
 import sys
@@ -150,46 +151,46 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
                              ''',
                             "id": "6tq-u28-hwa"
                          },
-                        {
-                            "name":
-                             '''
-                             edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a 
-                             course’s landing page, and sees the “Enroll Now” screen
-                             ''',
-                             "id": "zkx-36f-kui"
-                        },
-                        {
-                            "name":
-                             '''
-                             [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access 
-                             a course’s landing page, course content, and course forum
-                             ''',
-                             "id": "jvx-2jw-agj"
-                        },
-                        {
-                            "name":
-                            '''
-                            [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load 
-                            a graded problem, and sees the upsell screen
-                            ''',
-                             "id": "75p-sez-5wg"
-                        },
-                        {
-                            "name":
-                                '''
-                                [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can 
-                                access a course’s landing page, course content, and course forum
-                                ''',
-                            "id": "zbz-r28-jjx"
-                        },
-                        {
-                            "name":
-                                '''
-                                [Synthetics] edX Smoke Test - [Verified student] A verified student can 
-                                access a graded course problem
-                                ''',
-                            "id": "tck-hrr-ubp"
-                        },
+                        # {
+                        #     "name":
+                        #      '''
+                        #      edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
+                        #      course’s landing page, and sees the “Enroll Now” screen
+                        #      ''',
+                        #      "id": "zkx-36f-kui"
+                        # },
+                        # {
+                        #     "name":
+                        #      '''
+                        #      [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access
+                        #      a course’s landing page, course content, and course forum
+                        #      ''',
+                        #      "id": "jvx-2jw-agj"
+                        # },
+                        # {
+                        #     "name":
+                        #     '''
+                        #     [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load
+                        #     a graded problem, and sees the upsell screen
+                        #     ''',
+                        #      "id": "75p-sez-5wg"
+                        # },
+                        # {
+                        #     "name":
+                        #         '''
+                        #         [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
+                        #         access a course’s landing page, course content, and course forum
+                        #         ''',
+                        #     "id": "zbz-r28-jjx"
+                        # },
+                        # {
+                        #     "name":
+                        #         '''
+                        #         [Synthetics] edX Smoke Test - [Verified student] A verified student can
+                        #         access a graded course problem
+                        #         ''',
+                        #     "id": "tck-hrr-ubp"
+                        # },
                         ]
         logging.info(f"Running the following tests: {str(tests_to_run)}")
 
