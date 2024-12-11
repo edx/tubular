@@ -63,7 +63,7 @@ class DatadogClient:
         for test in test_requests:
             test_result = self._poll_for_test_result(test['id'])
             if test_result == False:
-                failed_tests.add(test)
+                failed_tests.append(test)
 
         return failed_tests
 
