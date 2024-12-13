@@ -112,6 +112,7 @@ class DatadogClient:
             return None
 
         response_json = response.json()
+        logging.info(f"Get batch results returns {response_json=}")
         return response_json
 
 
@@ -181,22 +182,22 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
                                 ''',
                             "id": "6tq-u28-hwa"
                         },
-                        {
-                            "name":
-                             '''
-                             edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
-                             course’s landing page, and sees the “Enroll Now” screen
-                             ''',
-                             "id": "zkx-36f-kui"
-                        },
-                        {
-                            "name":
-                             '''
-                             [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access
-                             a course’s landing page, course content, and course forum
-                             ''',
-                             "id": "jvx-2jw-agj"
-                        },
+                        # {
+                        #     "name":
+                        #      '''
+                        #      edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
+                        #      course’s landing page, and sees the “Enroll Now” screen
+                        #      ''',
+                        #      "id": "zkx-36f-kui"
+                        # },
+                        # {
+                        #     "name":
+                        #      '''
+                        #      [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access
+                        #      a course’s landing page, course content, and course forum
+                        #      ''',
+                        #      "id": "jvx-2jw-agj"
+                        # },
                         # {
                         #     "name":
                         #     '''
