@@ -21,6 +21,7 @@ class DatadogClient:
         self.api_key = api_key
         self.app_key = app_key
         self.test_run_id = None
+        self.test_batch_id = None
         self.trigger_time = None
 
     def trigger_synthetic_tests(self, test_requests: [dict]) -> str:
@@ -51,6 +52,7 @@ class DatadogClient:
             aggregate_test_run_id = response_body['batch_id']
             logging.info(f"Datadog test run launched: {aggregate_test_run_id}")
             self.test_run_id = aggregate_test_run_id
+            self.test_batch_id = aggregate_test_run_id # used when triggering with /ci option
             self.trigger_time = time.time() # Key timeouts off of this
             logging.info(f'Tests triggered at time {self.trigger_time}')
 
