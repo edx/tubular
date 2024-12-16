@@ -99,7 +99,7 @@ class DatadogClient:
         return test_result
 
     def _get_batch_result(self):
-        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/ci/batch/{self.test_run_id}"
+        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/ci/batch/{self.test_batch_id}"
         headers = {
             "DD-API-KEY": self.api_key,
             "DD-APPLICATION-KEY": self.app_key
