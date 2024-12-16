@@ -2,10 +2,8 @@
 from dataclasses import dataclass
 
 import click
-import json
 import logging
 import os
-import pprint
 import requests
 import time
 import sys
@@ -47,12 +45,12 @@ class DatadogClient:
 
         try:
             response_body = response.json()
-            # result = response_body['results'][0]
-            # aggregate_test_run_id = result['result_id']
-            aggregate_test_run_id = response_body['batch_id']
-            logging.info(f"Datadog test run launched: {aggregate_test_run_id}")
+            result = response_body['results'][0]
+            aggregate_test_run_id = result['result_id']
+            batch_id = response_body['batch_id']
+            logging.info(f"Datadog test run launched: {aggregate_test_run_id=} {batch_id=}")
             self.test_run_id = aggregate_test_run_id
-            self.test_batch_id = aggregate_test_run_id # used when triggering with /ci option
+            self.test_batch_id = batch_id # used when triggering with /ci option
             self.trigger_time = time.time() # Key timeouts off of this
             logging.info(f'Tests triggered at time {self.trigger_time}')
 
