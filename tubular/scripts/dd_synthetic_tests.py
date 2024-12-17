@@ -45,10 +45,11 @@ class DatadogClient:
 
         try:
             response_body = response.json()
+            batch_id = response_body['batch_id']
+            logging.info(f"Datadog test run launched: {batch_id=}")
             result = response_body['results'][0]
             aggregate_test_run_id = result['result_id']
-            batch_id = response_body['batch_id']
-            logging.info(f"Datadog test run launched: {aggregate_test_run_id=} {batch_id=}")
+            logging.info(f"Datadog test run launched: {aggregate_test_run_id=} test id = {result['public_id']}")
             self.test_run_id = aggregate_test_run_id
             self.test_batch_id = batch_id # used when triggering with /ci option
             self.trigger_time = time.time() # Key timeouts off of this
