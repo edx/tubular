@@ -90,7 +90,9 @@ class DatadogClient:
         test_result = None
         while test_result is None and (time.time() - self.trigger_time) < (self.MAX_ALLOWABLE_TIME_SECS):
             time.sleep(5)  # Poll every 5 seconds
+            logging.info(f"Polling for test {test_id=}")
             test_result = self._get_test_result(test_id)
+            logging.info(f"{test_result=}")
 
         if test_result is None:
             raise Exception("The test run timed out.")
