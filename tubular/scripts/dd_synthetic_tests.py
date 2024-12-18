@@ -50,7 +50,7 @@ class DatadogClient:
             for result in response_body['results']:
                 result_id = result['result_id']
                 test_run_ids.append(result_id)
-                logging.info(f"Datadog test run launched: {result_id=} {result['test_public_id']}")
+                logging.info(f"Datadog test run launched: {result_id=} {result['public_id']}")
 
         except Exception as e:
             raise Exception("Datadog error on triggering tests: " + str(e))
