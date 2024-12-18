@@ -9,6 +9,9 @@ import time
 import sys
 
 class SyntheticTest:
+    '''
+    Attributes for a specific synthetic test and its test run under a datadog CI batch
+    '''
     def __init__(self, name, public_id):
         self.name = name
         self.public_id = public_id
@@ -16,7 +19,7 @@ class SyntheticTest:
         self.success = None
 
 class DatadogClient:
-    ''' Invokes datadog API to run and monitor synthetic tests '''
+    ''' Client class to invoke datadog API to run and monitor synthetic tests '''
 
     DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
     DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
@@ -75,7 +78,7 @@ class DatadogClient:
         Save list of requested tests in this datadog client object, indexed by test public ID
         '''
         for test in test_requests:
-            self.tests_by_public_id[test['public_id']] = test
+            self.tests_by_public_id[test.public_id] = test
 
     def _trigger_batch_tests(self):
         '''
@@ -126,7 +129,7 @@ class DatadogClient:
             raise Exception("The test run timed out.")
 
         completion_time = time.time()
-        logging.info(f"Test {test['public_id']} finished at time {completion_time} with {test_result=}")
+        logging.info(f"Test {test.public_id} finished at time {completion_time} with {test_result=}")
         return test_result
 
     def _get_test_result(self, test):
@@ -134,7 +137,7 @@ class DatadogClient:
         returns JSON structure with test results for all tests in the test run
         if the test run has completed; returns None otherwise
         """
-        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/{test['public_id']}/results/{test['test_run_id']}"
+        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/{test.public_id}/results/{test.test_run_id}"
         headers = {
             "DD-API-KEY": self.api_key,
             "DD-APPLICATION-KEY": self.app_key
@@ -231,7 +234,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
         failed_tests = dd_client.get_failed_tests()
 
         for failed_test in failed_tests:
-            logging.warning(f'Test {failed_test["name"]}({failed_test["public_id"]}) failed')
+            logging.warning(f'Test {failed_test.name}({failed_test.public_id} failed')
 
         task_failed_code = 1 if failed_tests else 0
 
