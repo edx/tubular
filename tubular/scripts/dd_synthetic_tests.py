@@ -56,7 +56,7 @@ class DatadogClient:
         Poll for test results for all tests that were run, and save the results
         in this datadog client object
         '''
-        for test in self.tests:
+        for test in list(self.tests_by_public_id.values()):
             test.success = self._poll_for_test_result(test)
 
     def get_failed_tests(self):
@@ -65,7 +65,7 @@ class DatadogClient:
         :return: A list of failed test objects; Empty list if all tests passed
         '''
         failed_tests = []
-        for test in self.tests:
+        for test in list(self.tests_by_public_id.values()):
             if not test.success:
                 failed_tests.append(test)
 
