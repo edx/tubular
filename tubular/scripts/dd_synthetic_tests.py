@@ -185,49 +185,49 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
         dd_client = DatadogClient(api_key, app_key)
 
         tests_to_run = [
-                        SyntheticTest(
-                            '''
-                            edX Smoke Test - [Anonymous user] An anonymous user is directed to the
-                            Logistration page (authn.edx.org) when trying to access content behind log-in wall
-                            ''',
-                            "6tq-u28-hwa"
-                        ),
-                        SyntheticTest(
-                             '''
-                             edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
-                             course’s landing page, and sees the “Enroll Now” screen
-                             ''',
-                             "zkx-36f-kui"
-                        ),
-                        SyntheticTest(
-                             '''
-                             [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access
-                             a course’s landing page, course content, and course forum
-                             ''',
-                             "jvx-2jw-agj"
-                        ),
-                        SyntheticTest(
-                            '''
-                            [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load
-                            a graded problem, and sees the upsell screen
-                            ''',
-                            "75p-sez-5wg"
-                        ),
-                        SyntheticTest(
-                            '''
-                            [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
-                            access a course’s landing page, course content, and course forum
-                            ''',
-                            "zbz-r28-jjx"
-                        ),
-                        SyntheticTest(
-                            '''
-                            [Synthetics] edX Smoke Test - [Verified student] A verified student can
-                            access a graded course problem
-                            ''',
-                            "tck-hrr-ubp"
-                        ),
-                        ]
+            SyntheticTest(
+                '''
+                [Synthetics] edX Smoke Test - [Verified student] A verified student can
+                access a graded course problem
+                ''',
+                "tck-hrr-ubp"
+            ),
+            SyntheticTest(
+                '''
+                [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
+                access a course’s landing page, course content, and course forum
+                ''',
+                "zbz-r28-jjx"
+            ),
+            SyntheticTest(
+                '''
+                [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load
+                a graded problem, and sees the upsell screen
+                ''',
+                "75p-sez-5wg"
+            ),
+            SyntheticTest(
+                '''
+                [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access
+                a course’s landing page, course content, and course forum
+                ''',
+                "jvx-2jw-agj"
+            ),
+            SyntheticTest(
+                '''
+                edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
+                course’s landing page, and sees the “Enroll Now” screen
+                ''',
+                "zkx-36f-kui"
+            ),
+            SyntheticTest(
+                '''
+                edX Smoke Test - [Anonymous user] An anonymous user is directed to the
+                Logistration page (authn.edx.org) when trying to access content behind log-in wall
+                ''',
+                "6tq-u28-hwa"
+            ),
+        ]
         logging.info(f"Running the following tests: {str(tests_to_run)}")
         dd_client.trigger_synthetic_tests(tests_to_run)
         dd_client.get_and_record_test_results()
