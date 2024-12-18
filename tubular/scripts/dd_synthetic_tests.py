@@ -8,6 +8,13 @@ import requests
 import time
 import sys
 
+class SyntheticTest:
+    def __init__(self, name, public_id):
+        self.name = name
+        self.public_id = public_id
+        self.test_run_id = None
+        self.success = None
+
 class DatadogClient:
     ''' Invokes datadog API to run and monitor synthetic tests '''
 
@@ -20,12 +27,60 @@ class DatadogClient:
         self.app_key = app_key
         self.test_batch_id = None
         self.trigger_time = None
+        self.tests_by_public_id = {}
 
-    def trigger_synthetic_tests(self, test_requests: [dict]) -> str:
+    def trigger_synthetic_tests(self, test_requests: [SyntheticTest]):
         '''
         Trigger running of one or more synthetic tests.
         :param test_requests: List of tests to be run
-        :return: None, but saves opaque test run ID as object attribute
+        :return: None, but saves batch ID and test run IDs as object attributes
+        '''
+        self._record_batch_tests(test_requests)
+        self.trigger_time = time.time()  # Key timeouts off of this
+        logging.info(f'CI batch triggered at time {self.trigger_time}')
+
+        try:
+            response = self._trigger_batch_tests()
+            response_body = response.json()
+            self._record_batch_id(response_body)
+            self._record_test_run_ids(response_body)
+
+        except Exception as e:
+            raise Exception("Datadog error on triggering tests: " + str(e))
+
+    def get_and_record_test_results(self):
+        '''
+        Poll for test results for all tests that were run, and save the results
+        in this datadog client object
+        '''
+        for test in self.tests:
+            test.success = self._poll_for_test_result(test)
+
+    def get_failed_tests(self):
+        '''
+        Compile a list of all failed tests from the set of all tests that were run
+        :return: A list of failed test objects; Empty list if all tests passed
+        '''
+        failed_tests = []
+        for test in self.tests:
+            if not test.success:
+                failed_tests.append(test)
+
+        return failed_tests
+
+    # ***************** Private methods **********************
+
+    def _record_batch_tests(self, test_requests):
+        '''
+        Save list of requested tests in this datadog client object, indexed by test public ID
+        '''
+        for test in test_requests:
+            self.tests_by_public_id[test['public_id']] = test
+
+    def _trigger_batch_tests(self):
+        '''
+        Ask datadog to run the set of selected synthetic tests
+        returns the response from the datadog API call
         '''
         url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/trigger/ci"
         headers = {
@@ -33,109 +88,63 @@ class DatadogClient:
             "DD-API-KEY": self.api_key,
             "DD-APPLICATION-KEY": self.app_key
         }
-        json_request_body = {"tests": [{"public_id": t['id']} for t in test_requests]}
+        test_public_ids = list(self.tests_by_public_id.keys())
+        json_request_body = {"tests": [{"public_id": public_id} for public_id in test_public_ids]}
         response = requests.post(url, headers=headers, json=json_request_body)
-        self.trigger_time = time.time()  # Key timeouts off of this
-        logging.info(f'Tests triggered at time {self.trigger_time}')
-
         if response.status_code != 200:
             raise Exception(f"Datadog API error. Status = {response.status_code}")
+        return response
 
-        try:
-            response_body = response.json()
-            self.batch_id = response_body['batch_id']
-            logging.info(f"Datadog test run launched: {self.batch_id=}")
-            test_run_ids = []
-
-            for result in response_body['results']:
-                result_id = result['result_id']
-                test_run_ids.append(result_id)
-                logging.info(f"Datadog test run launched: {result_id=} {result['public_id']}")
-
-        except Exception as e:
-            raise Exception("Datadog error on triggering tests: " + str(e))
-
-        return test_run_ids
-
-    def get_failed_tests(self, test_requests, test_run_ids):
+    def _record_batch_id(self, response_body):
         '''
-        Poll for completion of all tests triggered as part of the "test_run_id" test run
-        :param test_run_id: Opaque identifier for the aggregate test run
-        :return: A list of the test ids for the tests that failed; Empty list if all tests passed
+        Saves the batch id assigned by datadog to this batch request as an object field
         '''
-        failed_tests = []
-        # batch_result = None
-        # while batch_result is None and (time.time() - self.trigger_time) < (self.MAX_ALLOWABLE_TIME_SECS):
-        #     time.sleep(5)  # Poll every 5 seconds
-        #     batch_result = self._get_batch_result()
-        # logging.info(f"Done getting batch result at time {time.time()}")
-        # logging.info(f"Batch result: {batch_result}")
+        self.batch_id = response_body['batch_id']
 
-        for i, test in test_requests:
-            test_result = self._poll_for_test_result(test['id'], test_run_ids[i])
-            if test_result == False:
-                failed_tests.append(test)
 
-        return failed_tests
+    def _record_test_run_ids(self, response_body):
+        '''
+        Saves the test run ID values assigned by datatod to this barch request's tests, as
+        a dictionary keyed off of test public ids
+        '''
+        for result in response_body['results']:
+            public_id = result['public_id']
+            test_run_id = result['result_id']
+            self.tests_by_public_id[public_id].test_run_id = test_run_id
 
-    # ***************** Private methods **********************
-
-    def _poll_for_test_result(self, test_id, test_run_id):
+    def _poll_for_test_result(self, test):
         """
         Poll for test run completion within the maximum allowable time for the specified test.
         Returns None if still running; otherwise, returns True on test success and False on test failure.
         """
-        start_time = time.time()
         test_result = None
         while test_result is None and (time.time() - self.trigger_time) < (self.MAX_ALLOWABLE_TIME_SECS):
             time.sleep(5)  # Poll every 5 seconds
-            logging.info(f"Polling for test {test_id=}")
-            test_result = self._get_test_result(test_id, test_run_id)
-            logging.info(f"{test_result=}")
+            test_result = self._get_test_result(test)
 
         if test_result is None:
             raise Exception("The test run timed out.")
 
         completion_time = time.time()
-        logging.info(f'Test {test_id} finished at time {completion_time} with {test_result=}')
+        logging.info(f"Test {test['public_id']} finished at time {completion_time} with {test_result=}")
         return test_result
 
-    def _get_batch_result(self):
-        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/ci/batch/{self.test_batch_id}"
-        headers = {
-            "DD-API-KEY": self.api_key,
-            "DD-APPLICATION-KEY": self.app_key
-        }
-
-        response = requests.get(url, headers=headers)
-
-        if response.status_code != 200:
-            logging.info(f"Get batch results returned status of {response.status_code}")
-            return None
-
-        response_json = response.json()
-        logging.info(f"Get batch results returns {response_json=}")
-        return response_json
-
-
-    def _get_test_result(self, test_id, test_run_id):
+    def _get_test_result(self, test):
         """
         returns JSON structure with test results for all tests in the test run
         if the test run has completed; returns None otherwise
         """
-        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/{test_id}/results/{test_run_id}"
+        url = f"{self.DATADOG_SYNTHETIC_TESTS_API_URL}/{test['public_id']}/results/{test['test_run_id']}"
         headers = {
             "DD-API-KEY": self.api_key,
             "DD-APPLICATION-KEY": self.app_key
         }
 
         response = requests.get(url, headers=headers)
-
         if response.status_code != 200:
             return None
 
         response_json = response.json()
-        # logging.info(f"Response for test {test_id} = {response_json['result']}")
         return response_json['result']['passed']
 
 """
@@ -172,66 +181,57 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel):
         app_key = os.getenv("DATADOG_APP_KEY")
         dd_client = DatadogClient(api_key, app_key)
 
-        # Prepare and trigger the synthetic test request
-        # PUBLIC_TEST_ID = "sad-hqu-h33"
-        # tests_to_run = json.loads(os.getenv("TESTS_TO_RUN"))
         tests_to_run = [
-                        {
-                            "name":
-                                '''
-                                edX Smoke Test - [Anonymous user] An anonymous user is directed to the
-                                Logistration page (authn.edx.org) when trying to access content behind log-in wall
-                                ''',
-                            "id": "6tq-u28-hwa"
-                        },
-                        {
-                            "name":
+                        SyntheticTest(
+                            '''
+                            edX Smoke Test - [Anonymous user] An anonymous user is directed to the
+                            Logistration page (authn.edx.org) when trying to access content behind log-in wall
+                            ''',
+                            "6tq-u28-hwa"
+                        ),
+                        SyntheticTest(
                              '''
                              edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
                              course’s landing page, and sees the “Enroll Now” screen
                              ''',
-                             "id": "zkx-36f-kui"
-                        },
-                        {
-                            "name":
+                             "zkx-36f-kui"
+                        ),
+                        SyntheticTest(
                              '''
                              [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access
                              a course’s landing page, course content, and course forum
                              ''',
-                             "id": "jvx-2jw-agj"
-                        },
-                        {
-                            "name":
+                             "jvx-2jw-agj"
+                        ),
+                        SyntheticTest(
                             '''
                             [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load
                             a graded problem, and sees the upsell screen
                             ''',
-                             "id": "75p-sez-5wg"
-                        },
-                        {
-                            "name":
-                                '''
-                                [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
-                                access a course’s landing page, course content, and course forum
-                                ''',
-                            "id": "zbz-r28-jjx"
-                        },
-                        {
-                            "name":
-                                '''
-                                [Synthetics] edX Smoke Test - [Verified student] A verified student can
-                                access a graded course problem
-                                ''',
-                            "id": "tck-hrr-ubp"
-                        },
+                            "75p-sez-5wg"
+                        ),
+                        SyntheticTest(
+                            '''
+                            [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
+                            access a course’s landing page, course content, and course forum
+                            ''',
+                            "zbz-r28-jjx"
+                        ),
+                        SyntheticTest(
+                            '''
+                            [Synthetics] edX Smoke Test - [Verified student] A verified student can
+                            access a graded course problem
+                            ''',
+                            "tck-hrr-ubp"
+                        ),
                         ]
         logging.info(f"Running the following tests: {str(tests_to_run)}")
+        dd_client.trigger_synthetic_tests(tests_to_run)
+        dd_client.get_and_record_test_results()
+        failed_tests = dd_client.get_failed_tests()
 
-        test_run_ids = dd_client.trigger_synthetic_tests(tests_to_run)
-
-        failed_tests = dd_client.get_failed_tests(tests_to_run, test_run_ids)
         for failed_test in failed_tests:
-            logging.warning(f'Test {failed_test["name"]}({failed_test["id"]}) failed')
+            logging.warning(f'Test {failed_test["name"]}({failed_test["public_id"]}) failed')
 
         task_failed_code = 1 if failed_tests else 0
 
