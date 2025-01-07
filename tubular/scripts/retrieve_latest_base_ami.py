@@ -127,7 +127,8 @@ def _backoff_logger(details):
     max_tries=5, jitter=backoff.random_jitter, on_backoff=_backoff_logger,
 )
 def get_with_retry(url):
-    data = requests.get(url)
+    # Set timeout to 1 minute to ensure open connections get killed.
+    data = requests.get(url, timeout=60)
     return data
 
 
