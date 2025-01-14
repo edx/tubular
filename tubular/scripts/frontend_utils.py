@@ -68,9 +68,16 @@ class FrontendUtils:
         app_config = self.common_cfg.get('APP_CONFIG', {})
         app_config.update(self.env_cfg.get('APP_CONFIG', {}))
         app_config['APP_VERSION'] = self.get_version_commit_sha()
+        app_config['FEATURE_FLAGS'] = self.get_feature_flags()
         if not app_config:
             self.LOG('Config variables do not exist for app {}.'.format(self.app_name))
         return app_config
+
+    def get_feature_flags(self):
+        """ Accesses the feature flags from config and JSON encodes it to be placed in env variables """
+        feature_flags = self.env_cfg.get('FEATURE_FLAGS', {})
+        feature_flag_json = json.dumps(feature_flags)
+        return feature_flag_json
 
     def get_version_commit_sha(self):
         """ Returns the commit SHA of the current HEAD """
