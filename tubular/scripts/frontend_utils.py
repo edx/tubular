@@ -67,6 +67,7 @@ class FrontendUtils:
         """ Combines the common and environment configs APP_CONFIG data """
         app_config = self.common_cfg.get('APP_CONFIG', {})
         app_config.update(self.env_cfg.get('APP_CONFIG', {}))
+        app_config.update(self.env_cfg.get('FEATURE_FLAGS', {}))
         app_config['APP_VERSION'] = self.get_version_commit_sha()
         app_config['FEATURE_FLAGS'] = self.get_feature_flags()
         if not app_config:
