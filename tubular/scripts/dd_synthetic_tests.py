@@ -1,6 +1,4 @@
 #! /usr/bin/env python3
-from dataclasses import dataclass
-
 import click
 import logging
 import os
@@ -257,54 +255,51 @@ if __name__ == "__main__":
     SLACK_NOTIFICATION_CHANNEL = 'project-edxapp-deployment-future'
     ENABLE_AUTOMATED_ROLLBACKS = False
     TESTS_TO_REPORT_ON = [
-        # All tests disabled for now. Will reinstate
-        # them after the waffle switch functioinality has been tested on stage.
         #
-        # TODO: Two tests are disabled behind two layers of comment symbols. These are broken and should not
-        # be reinstated until fixed.
+        # TODO: Two tests are broken and should not be reinstated until fixed.
         #
+        SyntheticTest(
+            '''
+            [Synthetics] edX Smoke Test - [Verified student] A verified student can
+            access a graded course problem
+            ''',
+            "tck-hrr-ubp"
+        ),
+        SyntheticTest(
+            '''
+            [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
+            access a course’s landing page, course content, and course forum
+            ''',
+            "zbz-r28-jjx"
+        ),
         # SyntheticTest(
         #     '''
-        #     [Synthetics] edX Smoke Test - [Verified student] A verified student can
-        #     access a graded course problem
+        #     [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load
+        #     a graded problem, and sees the upsell screen
         #     ''',
-        #     "tck-hrr-ubp"
+        #     "75p-sez-5wg"
         # ),
         # SyntheticTest(
         #     '''
-        #     [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
-        #     access a course’s landing page, course content, and course forum
+        #     [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access
+        #     a course’s landing page, course content, and course forum
         #     ''',
-        #     "zbz-r28-jjx"
+        #     "jvx-2jw-agj"
         # ),
-        # # SyntheticTest(
-        # #     '''
-        # #     [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load
-        # #     a graded problem, and sees the upsell screen
-        # #     ''',
-        # #     "75p-sez-5wg"
-        # # ),
-        # # SyntheticTest(
-        # #     '''
-        # #     [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access
-        # #     a course’s landing page, course content, and course forum
-        # #     ''',
-        # #     "jvx-2jw-agj"
-        # # ),
-        # SyntheticTest(
-        #     '''
-        #     edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
-        #     course’s landing page, and sees the “Enroll Now” screen
-        #     ''',
-        #     "zkx-36f-kui"
-        # ),
-        # SyntheticTest(
-        #     '''
-        #     edX Smoke Test - [Anonymous user] An anonymous user is directed to the
-        #     Logistration page (authn.edx.org) when trying to access content behind log-in wall
-        #     ''',
-        #     "6tq-u28-hwa"
-        # ),
+        SyntheticTest(
+            '''
+            edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
+            course’s landing page, and sees the “Enroll Now” screen
+            ''',
+            "zkx-36f-kui"
+        ),
+        SyntheticTest(
+            '''
+            edX Smoke Test - [Anonymous user] An anonymous user is directed to the
+            Logistration page (authn.edx.org) when trying to access content behind log-in wall
+            ''',
+            "6tq-u28-hwa"
+        ),
     ]
-    #TODO: Pick up these settings from GoCD invocation
+
     run_synthetic_tests(TESTS_TO_REPORT_ON, ENABLE_AUTOMATED_ROLLBACKS, SLACK_NOTIFICATION_CHANNEL)
