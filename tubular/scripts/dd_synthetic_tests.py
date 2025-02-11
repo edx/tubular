@@ -23,9 +23,9 @@ class DatadogClient:
     DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
     MAX_ALLOWABLE_TIME_SECS = 600 # 10 minutes
 
-    WAFFLE_SWITCH_TEST = SyntheticTest(
+    DEPLOYMENT_TESTING_ENABLED_SWITCH = SyntheticTest(
                 '''
-                "Waffle switch" test governing CI/CD synthetic testing
+                Deployment testing enable test governing CI/CD synthetic testing
                 ''',
                 "sad-hqu-h33"
             )
@@ -45,11 +45,11 @@ class DatadogClient:
         '''
 
         # Note that the list of tests to be run is one longer than the list of tests to be reported on.
-        # The extra test is the so-called "waffle switch test". That test should be modified via the Datadog UI
-        # to either always pass or always fail, depending on whether synthetic testing is to be enabled at runtime
-        # or not, respectively.
+        # The extra test is the so-called "deployment testing enable switch test".
+        # That test should be modified via the Datadog UI to either always pass or always fail, depending
+        # on whether synthetic testing is to be enabled at runtime or not, respectively.
         # While the test's result does affect how the pipeline operates, the result is not treated as reportable.
-        tests_to_run = [self.WAFFLE_SWITCH_TEST] + tests_to_report
+        tests_to_run = [self.DEPLOYMENT_TESTING_ENABLED_SWITCH] + tests_to_report
         self._record_requested_test_particulars(tests_to_run)
         self.trigger_time = time.time()  # Key timeouts off of this
         logging.info(f'CI batch triggered at time {self.trigger_time}')
@@ -63,10 +63,10 @@ class DatadogClient:
         except Exception as e:
             raise Exception("Datadog error on triggering tests: " + str(e))
 
-    def gate_on_waffle_switch(self):
+    def gate_on_deployment_testing_enable_switch(self):
         '''
-        This is a bit hacky, but there's a designated test that's used as a waffle switch might be used in
-        a Django app. If the test passes, it means that the synthetic testing GoCD pipeline is enabled, and the
+        This is a bit hacky, but there's a designated test that's used as a deployment testing enable switch.
+        If the test passes, it means that the synthetic testing GoCD pipeline is enabled, and the
         build should only proceed if all reportable tests pass; if the test fails, the build should proceed irrespective
         of any failures among the synthetic tests (which will be allowed to run, nonetheless). When this is intended,
         the GoCD pipeline responsible for running the tests should just return a success code without waiting
@@ -75,9 +75,9 @@ class DatadogClient:
         :return: Nothing, but terminates task with a success code if the synthetic testing feature is disabled
         and logs the decision to skip testing on this build
         '''
-        waffle_switch = self._poll_for_test_result(self.WAFFLE_SWITCH_TEST)
-        if waffle_switch == False:
-            switch_test_name = self.WAFFLE_SWITCH_TEST.name
+        deployment_testing_enabled = self._poll_for_test_result(self.DEPLOYMENT_TESTING_ENABLED_SWITCH)
+        if deployment_testing_enabled == False:
+            switch_test_name = self.DEPLOYMENT_TESTING_ENABLED_SWITCH.name
             logging.warning(
                 f'*** Datadog Synthetic testing disabled via failing test {switch_test_name} ***')
             sys.exit(0)
@@ -150,14 +150,15 @@ class DatadogClient:
         test configuration data in this module. It is the public ids that are used in the test run results
         to identify which test is being reported on.
 
-        While we do care as to the result for the "waffle switch test", we use that result differently from all other
-        test results, and do not save it in the dictionary with results we intend to report on.
+        While we do care as to the result for the "deployment testing enabled switch test", we use that
+        result differently from all other test results, and do not save it in the dictionary
+        with results we intend to report on.
         '''
         for result in response_body['results']:
             public_id = result['public_id']
             test_run_id = result['result_id']
-            if public_id == self.WAFFLE_SWITCH_TEST.public_id:
-                self.WAFFLE_SWITCH_TEST.test_run_id = test_run_id
+            if public_id == self.DEPLOYMENT_TESTING_ENABLED_SWITCH.public_id:
+                self.DEPLOYMENT_TESTING_ENABLED_SWITCH.test_run_id = test_run_id
             else:
                 self.tests_by_public_id[public_id].test_run_id = test_run_id
 
@@ -239,7 +240,7 @@ def run_synthetic_tests(tests_to_report_on, enable_automated_rollbacks, slack_no
         dd_client = DatadogClient(api_key, app_key)
 
         dd_client.trigger_synthetic_tests(tests_to_report_on)
-        dd_client.gate_on_waffle_switch() # Exits summarily if test results to be ignored
+        dd_client.gate_on_deployment_testing_enable_switch() # Exits summarily if test results to be ignored
         for test in tests_to_report_on:
             logging.info(f"\t Running test {test.public_id}: {test.name}")
         dd_client.get_and_record_test_results()
@@ -261,7 +262,7 @@ if __name__ == "__main__":
     ENABLE_AUTOMATED_ROLLBACKS = False
     TESTS_TO_REPORT_ON = [
         # All tests disabled for now. Will reinstate
-        # them after the waffle switch functioinality has been tested on stage.
+        # them after the deployment testing enable switch functionality has been tested on stage.
         #
         # TODO: Two tests are disabled behind two layers of comment symbols. These are broken and should not
         # be reinstated until fixed.
