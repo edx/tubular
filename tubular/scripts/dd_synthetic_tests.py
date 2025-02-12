@@ -206,6 +206,7 @@ Command-line script to run Datadog synthetic tests in the production enviornment
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
+if __name__ == "__main__":
 @click.command()
 @click.option(
     '--enable-automated-rollbacks',
@@ -224,46 +225,13 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     type=int,
     help='Timeout in seconds allowed for execution of all tests'
 )
-
-def run_synthetic_tests(tests_to_report_on, enable_automated_rollbacks, timeout):
+def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel, timeout):
     '''
     :param enable_automated_rollbacks: Failing tests trigger a rollback in the build pipeline when true
     :param slack_notification_channel: Newly failing tests deliver a slack message to this channel; none on repeat fails
+    :param timeout
     :return: exits thread with success or fail code indicating tests' collective success or failure (of one or more)
     '''
-    if enable_automated_rollbacks:
-        logging.Error("Automated rollbacks are not yet supported")
-        sys.exit(1)
-
-    if timeout != 300:
-        logging.info(f'**************** {timeout=} ****************')
-
-    try:
-        api_key = os.getenv("DATADOG_API_KEY")
-        app_key = os.getenv("DATADOG_APP_KEY")
-        dd_client = DatadogClient(api_key, app_key)
-
-        dd_client.trigger_synthetic_tests(tests_to_report_on)
-        dd_client.gate_on_waffle_switch() # Exits summarily if test results to be ignored
-        for test in tests_to_report_on:
-            logging.info(f"\t Running test {test.public_id}: {test.name}")
-        dd_client.get_and_record_test_results()
-        failed_tests = dd_client.get_failed_tests()
-
-        for failed_test in failed_tests:
-            logging.warning(f'Test failed: {failed_test.public_id} -- {failed_test.name}')
-
-        task_failed_code = 1 if failed_tests else 0
-
-    except Exception as e:
-        logging.error("GoCD/Datadog integration error: ", str(e))
-        task_failed_code = 1
-
-    sys.exit(task_failed_code)
-
-if __name__ == "__main__":
-    SLACK_NOTIFICATION_CHANNEL = 'project-edxapp-deployment-future'
-    ENABLE_AUTOMATED_ROLLBACKS = False
     TESTS_TO_REPORT_ON = [
         #
         # TODO: Two tests are broken and should not be reinstated until fixed.
@@ -312,4 +280,35 @@ if __name__ == "__main__":
         ),
     ]
 
-    run_synthetic_tests(TESTS_TO_REPORT_ON, ENABLE_AUTOMATED_ROLLBACKS, SLACK_NOTIFICATION_CHANNEL)
+    if enable_automated_rollbacks:
+        logging.Error("Automated rollbacks are not yet supported")
+        sys.exit(1)
+
+    if timeout != 300:
+        logging.info(f'**************** {timeout=} ****************')
+
+    try:
+        api_key = os.getenv("DATADOG_API_KEY")
+        app_key = os.getenv("DATADOG_APP_KEY")
+        dd_client = DatadogClient(api_key, app_key)
+
+        dd_client.trigger_synthetic_tests(TESTS_TO_REPORT_ON)
+        dd_client.gate_on_waffle_switch() # Exits summarily if test results to be ignored
+        for test in TESTS_TO_REPORT_ON:
+            logging.info(f"\t Running test {test.public_id}: {test.name}")
+        dd_client.get_and_record_test_results()
+        failed_tests = dd_client.get_failed_tests()
+
+        for failed_test in failed_tests:
+            logging.warning(f'Test failed: {failed_test.public_id} -- {failed_test.name}')
+
+        task_failed_code = 1 if failed_tests else 0
+
+    except Exception as e:
+        logging.error("GoCD/Datadog integration error: ", str(e))
+        task_failed_code = 1
+
+    sys.exit(task_failed_code)
+
+if __name__ == "__main__":
+   run_synthetic_tests()
