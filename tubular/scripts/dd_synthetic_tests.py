@@ -1,4 +1,6 @@
 #! /usr/bin/env python3
+import pprint
+
 import click
 import json
 import logging
@@ -254,6 +256,8 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel, 
 
         tests_as_dicts = json.loads(tests)
         tests_to_report_on = [SyntheticTest(d["name"], d["public_id"]) for d in tests_as_dicts]
+        pprint.pp("********** tests_to_report_on ********")
+        pprint.pp(tests_to_report_on)
         dd_client.trigger_synthetic_tests(tests_to_report_on)
         dd_client.gate_on_waffle_switch() # Exits summarily if test results to be ignored
         for test in tests_to_report_on:
