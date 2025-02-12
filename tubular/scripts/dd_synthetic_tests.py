@@ -228,6 +228,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 @click.option(
     '--tests',
     default=300,
+    type=click.STRING,
     help='List of tests to be run as json with description and test_id for each test'
 )
 def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel, timeout, tests):
