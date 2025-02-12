@@ -206,6 +206,7 @@ Command-line script to run Datadog synthetic tests in the production enviornment
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
+@click.command()
 @click.option(
     '--enable-automated-rollbacks',
     is_flag=True,
@@ -217,8 +218,14 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     required=False,
     help='When set and synthetic tests fail, an alert Slack message is sent to this channel'
 )
+@click.option(
+    '--timeout',
+    default=300,
+    type=int,
+    help='Timeout in seconds allowed for execution of all tests'
+)
 
-def run_synthetic_tests(tests_to_report_on, enable_automated_rollbacks, slack_notification_channel):
+def run_synthetic_tests(tests_to_report_on, enable_automated_rollbacks, timeout):
     '''
     :param enable_automated_rollbacks: Failing tests trigger a rollback in the build pipeline when true
     :param slack_notification_channel: Newly failing tests deliver a slack message to this channel; none on repeat fails
@@ -227,6 +234,9 @@ def run_synthetic_tests(tests_to_report_on, enable_automated_rollbacks, slack_no
     if enable_automated_rollbacks:
         logging.Error("Automated rollbacks are not yet supported")
         sys.exit(1)
+
+    if timeout != 300:
+        logging.info(f'**************** {timeout=} ****************')
 
     try:
         api_key = os.getenv("DATADOG_API_KEY")
