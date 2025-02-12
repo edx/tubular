@@ -252,7 +252,8 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel, 
         app_key = os.getenv("DATADOG_APP_KEY")
         dd_client = DatadogClient(api_key, app_key)
 
-        tests_to_report_on = json.loads(tests)
+        tests_as_dicts = json.loads(tests)
+        tests_to_report_on = [SyntheticTest(d["name"], d["public_id"]) for d in tests_as_dicts]
         dd_client.trigger_synthetic_tests(tests_to_report_on)
         dd_client.gate_on_waffle_switch() # Exits summarily if test results to be ignored
         for test in tests_to_report_on:
