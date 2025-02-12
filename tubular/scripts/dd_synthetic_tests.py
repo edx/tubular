@@ -206,7 +206,6 @@ Command-line script to run Datadog synthetic tests in the production enviornment
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
-if __name__ == "__main__":
 @click.command()
 @click.option(
     '--enable-automated-rollbacks',
