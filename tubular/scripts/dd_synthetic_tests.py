@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 import click
+import json
 import logging
 import os
 import requests
@@ -224,60 +225,19 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     type=int,
     help='Timeout in seconds allowed for execution of all tests'
 )
-def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel, timeout):
+@click.option(
+    '--tests',
+    default=300,
+    help='List of tests to be run as json with description and test_id for each test'
+)
+def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel, timeout, tests):
     '''
     :param enable_automated_rollbacks: Failing tests trigger a rollback in the build pipeline when true
     :param slack_notification_channel: Newly failing tests deliver a slack message to this channel; none on repeat fails
     :param timeout
+    :param tests: json encoded string with list of tests to run and report on
     :return: exits thread with success or fail code indicating tests' collective success or failure (of one or more)
     '''
-    TESTS_TO_REPORT_ON = [
-        #
-        # TODO: Two tests are broken and should not be reinstated until fixed.
-        #
-        SyntheticTest(
-            '''
-            [Synthetics] edX Smoke Test - [Verified student] A verified student can
-            access a graded course problem
-            ''',
-            "tck-hrr-ubp"
-        ),
-        SyntheticTest(
-            '''
-            [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
-            access a course’s landing page, course content, and course forum
-            ''',
-            "zbz-r28-jjx"
-        ),
-        # SyntheticTest(
-        #     '''
-        #     [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load
-        #     a graded problem, and sees the upsell screen
-        #     ''',
-        #     "75p-sez-5wg"
-        # ),
-        # SyntheticTest(
-        #     '''
-        #     [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access
-        #     a course’s landing page, course content, and course forum
-        #     ''',
-        #     "jvx-2jw-agj"
-        # ),
-        SyntheticTest(
-            '''
-            edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
-            course’s landing page, and sees the “Enroll Now” screen
-            ''',
-            "zkx-36f-kui"
-        ),
-        SyntheticTest(
-            '''
-            edX Smoke Test - [Anonymous user] An anonymous user is directed to the
-            Logistration page (authn.edx.org) when trying to access content behind log-in wall
-            ''',
-            "6tq-u28-hwa"
-        ),
-    ]
 
     if enable_automated_rollbacks:
         logging.error("Automated rollbacks are not yet supported")
@@ -291,9 +251,10 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel, 
         app_key = os.getenv("DATADOG_APP_KEY")
         dd_client = DatadogClient(api_key, app_key)
 
-        dd_client.trigger_synthetic_tests(TESTS_TO_REPORT_ON)
+        tests_to_report_on = json.loads(tests)
+        dd_client.trigger_synthetic_tests(tests_to_report_on)
         dd_client.gate_on_waffle_switch() # Exits summarily if test results to be ignored
-        for test in TESTS_TO_REPORT_ON:
+        for test in tests_to_report_on:
             logging.info(f"\t Running test {test.public_id}: {test.name}")
         dd_client.get_and_record_test_results()
         failed_tests = dd_client.get_failed_tests()
