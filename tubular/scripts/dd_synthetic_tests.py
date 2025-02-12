@@ -280,7 +280,7 @@ def run_synthetic_tests(enable_automated_rollbacks, slack_notification_channel, 
     ]
 
     if enable_automated_rollbacks:
-        logging.Error("Automated rollbacks are not yet supported")
+        logging.error("Automated rollbacks are not yet supported")
         sys.exit(1)
 
     if timeout != 300:
