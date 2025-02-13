@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import click
+import json
 import logging
 import os
 import requests
@@ -21,7 +22,6 @@ class DatadogClient:
     ''' Client class to invoke datadog API to run and monitor synthetic tests '''
 
     DATADOG_SYNTHETIC_TESTS_API_URL = "https://api.datadoghq.com/api/v1/synthetics/tests"
-    MAX_ALLOWABLE_TIME_SECS = 600 # 10 minutes
 
     DEPLOYMENT_TESTING_ENABLED_SWITCH = SyntheticTest(
                 '''
@@ -35,6 +35,7 @@ class DatadogClient:
         self.app_key = app_key
         self.test_batch_id = None   # A 'batch' is a set of tests intended to be run in parallel
         self.trigger_time = None    # The system time at which a batch's execution was requested
+        self.timeout_secs = None    # The maximum number of seconds by which time all tests must be done
         self.tests_by_public_id = {} # Dictionary mapping Datadog test ID to all info we have for a specific test
 
     def trigger_synthetic_tests(self, tests_to_report: [SyntheticTest]):
@@ -176,7 +177,7 @@ class DatadogClient:
         Returns None if still running; otherwise, returns True on test success and False on test failure.
         """
         test_result = None
-        while test_result is None and (time.time() - self.trigger_time) < (self.MAX_ALLOWABLE_TIME_SECS):
+        while test_result is None and (time.time() - self.trigger_time) < (self.timeout_secs):
             time.sleep(5)  # Poll every 5 seconds
             test_result = self._get_test_result(test)
             logging.info(f'{test_result=}')
@@ -207,11 +208,13 @@ class DatadogClient:
         return response_json['result']['passed']
 
 """
-Command-line script to run Datadog synthetic tests in the production enviornment and then slack notify and/or roll back
+Command-line script to run Datadog synthetic tests in the stage environment
+Automated rollback is not yet supported
 """
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
+@click.command()
 @click.option(
     '--enable-automated-rollbacks',
     is_flag=True,
@@ -219,28 +222,39 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     help='When set and synthetic tests fail, the most recent deployment to production is automatically rolled back'
 )
 @click.option(
-    '--slack-notification-channel',
-    required=False,
-    help='When set and synthetic tests fail, an alert Slack message is sent to this channel'
+    '--timeout',
+    default=300,
+    type=int,
+    help='Maximum time measured in seconds for the test batch to have run to completion'
 )
-
-def run_synthetic_tests(tests_to_report_on, enable_automated_rollbacks, slack_notification_channel):
+@click.option(
+    '--tests',
+    required=True,
+    type=click.STRING,
+    help='List of tests to be run as json with description and test_id for each test'
+)
+def run_synthetic_tests(enable_automated_rollbacks, timeout, tests):
     '''
     :param enable_automated_rollbacks: Failing tests trigger a rollback in the build pipeline when true
-    :param slack_notification_channel: Newly failing tests deliver a slack message to this channel; none on repeat fails
+    :param timeout: Maximum number of seconds between test kick-off and completion of the slowest test
+    :param tests: json encoded string with list of tests to run and report on. Each test described by name and test_id
     :return: exits thread with success or fail code indicating tests' collective success or failure (of one or more)
     '''
+
     if enable_automated_rollbacks:
-        logging.Error("Automated rollbacks are not yet supported")
+        logging.error("Automated rollbacks are not yet supported")
         sys.exit(1)
 
     try:
         api_key = os.getenv("DATADOG_API_KEY")
         app_key = os.getenv("DATADOG_APP_KEY")
         dd_client = DatadogClient(api_key, app_key)
+        dd_client.timeout_secs = timeout
 
+        tests_as_dicts = json.loads(tests)
+        tests_to_report_on = [SyntheticTest(d["name"], d["public_id"]) for d in tests_as_dicts]
         dd_client.trigger_synthetic_tests(tests_to_report_on)
-        dd_client.gate_on_deployment_testing_enable_switch() # Exits summarily if test results to be ignored
+        dd_client.gate_on_deployment_testing_enable_switch() # Exits summarily if test results are to be ignored
         for test in tests_to_report_on:
             logging.info(f"\t Running test {test.public_id}: {test.name}")
         dd_client.get_and_record_test_results()
@@ -258,57 +272,4 @@ def run_synthetic_tests(tests_to_report_on, enable_automated_rollbacks, slack_no
     sys.exit(task_failed_code)
 
 if __name__ == "__main__":
-    SLACK_NOTIFICATION_CHANNEL = 'project-edxapp-deployment-future'
-    ENABLE_AUTOMATED_ROLLBACKS = False
-    TESTS_TO_REPORT_ON = [
-        # All tests disabled for now. Will reinstate
-        # them after the deployment testing enable switch functionality has been tested on stage.
-        #
-        # TODO: Two tests are disabled behind two layers of comment symbols. These are broken and should not
-        # be reinstated until fixed.
-        #
-        # SyntheticTest(
-        #     '''
-        #     [Synthetics] edX Smoke Test - [Verified student] A verified student can
-        #     access a graded course problem
-        #     ''',
-        #     "tck-hrr-ubp"
-        # ),
-        # SyntheticTest(
-        #     '''
-        #     [Synthetics] edX Smoke Test - [Verified student] An enrolled verified student can
-        #     access a course’s landing page, course content, and course forum
-        #     ''',
-        #     "zbz-r28-jjx"
-        # ),
-        # # SyntheticTest(
-        # #     '''
-        # #     [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student cannot load
-        # #     a graded problem, and sees the upsell screen
-        # #     ''',
-        # #     "75p-sez-5wg"
-        # # ),
-        # # SyntheticTest(
-        # #     '''
-        # #     [Synthetics] edX Smoke Test - [Audit student] An enrolled audit student can access
-        # #     a course’s landing page, course content, and course forum
-        # #     ''',
-        # #     "jvx-2jw-agj"
-        # # ),
-        # SyntheticTest(
-        #     '''
-        #     edX Smoke Test - [Unenrolled student] An unenrolled student cannot load a
-        #     course’s landing page, and sees the “Enroll Now” screen
-        #     ''',
-        #     "zkx-36f-kui"
-        # ),
-        # SyntheticTest(
-        #     '''
-        #     edX Smoke Test - [Anonymous user] An anonymous user is directed to the
-        #     Logistration page (authn.edx.org) when trying to access content behind log-in wall
-        #     ''',
-        #     "6tq-u28-hwa"
-        # ),
-    ]
-    #TODO: Pick up these settings from GoCD invocation
-    run_synthetic_tests(TESTS_TO_REPORT_ON, ENABLE_AUTOMATED_ROLLBACKS, SLACK_NOTIFICATION_CHANNEL)
+    run_synthetic_tests()
