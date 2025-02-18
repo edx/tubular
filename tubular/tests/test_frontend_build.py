@@ -66,7 +66,9 @@ class TestFrontendBuildConfigHandling(TestCase):
             "NONE='None'",
             "NONE_WITH_QUOTES='None'",
             "JS_CONFIG_FILEPATH='dummy/file/path/env.stage.config.jsx'",
-            "APP_VERSION='<COMMIT_HASH>'"
+            "ENABLE_FEATURE_A='True'",
+            "APP_VERSION='<COMMIT_HASH>'",
+            'FEATURE_FLAGS=\'{"ENABLE_FEATURE_A": true}\''
         ]
         assert mock_create_version.call_count == 1
         assert mock_shutil_copyfile.call_count == 1
