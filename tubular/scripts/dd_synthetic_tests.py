@@ -129,6 +129,7 @@ class DatadogClient:
         }
         test_public_ids = self.tests_by_public_id.keys()
         json_request_body = {"tests": [{"public_id": public_id} for public_id in test_public_ids]}
+        logging.info(f'Trigger request body: {json_request_body}')
         response = requests.post(url, headers=headers, json=json_request_body)
         if response.status_code != 200:
             raise Exception(f"Datadog API error. Status = {response.status_code}")
