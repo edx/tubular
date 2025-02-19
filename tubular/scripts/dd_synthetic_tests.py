@@ -129,7 +129,6 @@ class DatadogClient:
         }
         test_public_ids = self.tests_by_public_id.keys()
         json_request_body = {"tests": [{"public_id": public_id} for public_id in test_public_ids]}
-        logging.info(f'Trigger request body: {json_request_body}')
         response = requests.post(url, headers=headers, json=json_request_body)
         if response.status_code != 200:
             raise Exception(f"Datadog API error. Status = {response.status_code}")
@@ -247,8 +246,8 @@ def run_synthetic_tests(enable_automated_rollbacks, timeout, tests):
         sys.exit(1)
 
     try:
-        api_key = os.getenv("DATADOG_API_KEY")
-        app_key = os.getenv("DATADOG_APP_KEY")
+        api_key = os.getenv("DATADOG_API_KEY_SYNTHETIC_TEST")
+        app_key = os.getenv("DATADOG_APP_KEY_SYNTHETIC_TEST")
         dd_client = DatadogClient(api_key, app_key)
         dd_client.timeout_secs = timeout
 
