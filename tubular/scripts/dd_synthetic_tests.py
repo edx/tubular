@@ -247,8 +247,8 @@ def run_synthetic_tests(enable_automated_rollbacks, timeout, tests):
         sys.exit(1)
 
     try:
-        api_key = os.getenv("DATADOG_API_KEY")
-        app_key = os.getenv("DATADOG_APP_KEY")
+        api_key = os.getenv("DATADOG_API_KEY_SYNTHETIC_TEST")
+        app_key = os.getenv("DATADOG_APP_KEY_SYNTHETIC_TEST")
         dd_client = DatadogClient(api_key, app_key)
         dd_client.timeout_secs = timeout
 
