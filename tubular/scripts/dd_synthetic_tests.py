@@ -134,7 +134,7 @@ class DatadogClient:
         x = "(\w+)\.edx.org|1.stage.edx.org"
         json_request_body = {"tests": [{"public_id": test.public_id,
                                         "startUrl" : test.start_url,
- #                                       "resourceUrlSubstitutionRegexes": self._map_environment_resources(test.env)
+                                        "resourceUrlSubstitutionRegexes": self._map_environment_resources(test.env)
                                        }
                                        for test in self.tests_by_public_id.values()]}
         logging.info(f'Trigger request body: {json_request_body}')
@@ -144,7 +144,8 @@ class DatadogClient:
         return response
 
     def _map_environment_resources(self, env):
-        if not env or env == 'prod':
+        if not env or env == 'prod' or env == 'stage':
+            logging.info("***** Relying on identity transformation for environment resources ***** ")
             return r"(\.*)|\1"  # No change
         elif env == 'stage':
             return r'"(\.+)\.edx.org|\1.stage.edx.org"'
