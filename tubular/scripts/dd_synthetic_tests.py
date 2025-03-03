@@ -244,7 +244,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     help='Maximum time measured in seconds for the test batch to have run to completion'
 )
 @click.option(
-    '--environment',
+    '--environment_name',
     required=True,
     type=click.STRING,
     help='Environment to run test in ("stage" or "prod")'
@@ -255,7 +255,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     type=click.STRING,
     help='List of tests to be run as json with description and test_id for each test'
 )
-def run_synthetic_tests(enable_automated_rollbacks, timeout, environment, tests):
+def run_synthetic_tests(enable_automated_rollbacks, timeout, environment_name, tests):
     '''
     :param enable_automated_rollbacks: Failing tests trigger a rollback in the build pipeline when true
     :param timeout: Maximum number of seconds between test kick-off and completion of the slowest test
@@ -275,8 +275,8 @@ def run_synthetic_tests(enable_automated_rollbacks, timeout, environment, tests)
 
         tests_as_dicts = json.loads(tests)
         tests_to_report_on = [SyntheticTest(d["name"],
-                                            ["public_id"],
-                                            environment,
+                                            d["public_id"],
+                                            environment_name,
                                             d["startUrl"])
                               for d in tests_as_dicts]
         dd_client.trigger_synthetic_tests(tests_to_report_on)
