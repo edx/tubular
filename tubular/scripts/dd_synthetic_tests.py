@@ -30,8 +30,8 @@ class DatadogClient:
                 Deployment testing enable test governing CI/CD synthetic testing
                 ''',
                 "sad-hqu-h33",
-                "",     # No environment applies; test is always just a summary pass or fail
-                ""      # Ditto for resource substitution
+                "stage",     # Value will be ignored by test, but Datadog doesn't want it empty
+                "dummy_url"  # Ditto
             )
 
     def __init__(self, api_key, app_key):
