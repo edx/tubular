@@ -127,13 +127,24 @@ class DatadogClient:
             "DD-API-KEY": self.api_key,
             "DD-APPLICATION-KEY": self.app_key
         }
-        test_public_ids = self.tests_by_public_id.keys()
-        json_request_body = {"tests": [{"public_id": public_id} for public_id in test_public_ids]}
+        x = "(\w+)\.edx.org|1.stage.edx.org"
+        json_request_body = {"tests": [{"public_id": test.public_id,
+                                        "startUrl" : test.url,
+                                        "resourceUrlSubstitutionRegexes": self._map_environment_resources(test.env)}
+                                       for test in self.tests_by_public_id.values()]}
         logging.info(f'Trigger request body: {json_request_body}')
         response = requests.post(url, headers=headers, json=json_request_body)
         if response.status_code != 200:
             raise Exception(f"Datadog API error. Status = {response.status_code}")
         return response
+
+    def _map_environment_resources(self, env):
+        if not env or env == 'prod':
+            return r"(\.*)|\1" # No change
+        elif env == 'stage':
+            return r'"(\.+)\.edx.org|\1.stage.edx.org"'
+        else:
+            raise Exception(f'Unknown {env} environment')
 
     def _record_batch_id(self, response_body):
         '''
@@ -253,7 +264,7 @@ def run_synthetic_tests(enable_automated_rollbacks, timeout, tests):
         dd_client.timeout_secs = timeout
 
         tests_as_dicts = json.loads(tests)
-        tests_to_report_on = [SyntheticTest(d["name"], d["public_id"]) for d in tests_as_dicts]
+        tests_to_report_on = [SyntheticTest(d["name"], d["public_id"], d["env"], d["startUrl"]) for d in tests_as_dicts]
         dd_client.trigger_synthetic_tests(tests_to_report_on)
         dd_client.gate_on_deployment_testing_enable_switch() # Exits summarily if test results are to be ignored
         for test in tests_to_report_on:
