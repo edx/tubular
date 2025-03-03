@@ -29,7 +29,9 @@ class DatadogClient:
                 '''
                 Deployment testing enable test governing CI/CD synthetic testing
                 ''',
-                "sad-hqu-h33"
+                "sad-hqu-h33",
+                "",     # No environment applies; test is always just a summary pass or fail
+                ""      # Ditto for resource substitution
             )
 
     def __init__(self, api_key, app_key):
@@ -242,12 +244,18 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     help='Maximum time measured in seconds for the test batch to have run to completion'
 )
 @click.option(
+    '--environment',
+    required=True,
+    type=click.STRING,
+    help='Environment to run test in ("stage" or "prod")'
+)
+@click.option(
     '--tests',
     required=True,
     type=click.STRING,
     help='List of tests to be run as json with description and test_id for each test'
 )
-def run_synthetic_tests(enable_automated_rollbacks, timeout, tests):
+def run_synthetic_tests(enable_automated_rollbacks, timeout, environment, tests):
     '''
     :param enable_automated_rollbacks: Failing tests trigger a rollback in the build pipeline when true
     :param timeout: Maximum number of seconds between test kick-off and completion of the slowest test
@@ -266,7 +274,11 @@ def run_synthetic_tests(enable_automated_rollbacks, timeout, tests):
         dd_client.timeout_secs = timeout
 
         tests_as_dicts = json.loads(tests)
-        tests_to_report_on = [SyntheticTest(d["name"], d["public_id"], d["env"], d["startUrl"]) for d in tests_as_dicts]
+        tests_to_report_on = [SyntheticTest(d["name"],
+                                            ["public_id"],
+                                            environment,
+                                            d["startUrl"])
+                              for d in tests_as_dicts]
         dd_client.trigger_synthetic_tests(tests_to_report_on)
         dd_client.gate_on_deployment_testing_enable_switch() # Exits summarily if test results are to be ignored
         for test in tests_to_report_on:
