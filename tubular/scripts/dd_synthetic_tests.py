@@ -12,9 +12,11 @@ class SyntheticTest:
     '''
     Attributes for a Datadog synthetic test and its test run
     '''
-    def __init__(self, name, public_id):
+    def __init__(self, name, public_id, env, start_url):
         self.name = name            # The test's Datadog name
         self.public_id = public_id  # The test's Datadog Test ID
+        self.env = env              # The test environment ("stage" or "prod")
+        self.start_url = start_url  # The browser test's landing page
         self.test_run_id = None     # The run ID given by Datadog to this test's invocation
         self.success = None
 
