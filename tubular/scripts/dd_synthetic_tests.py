@@ -146,7 +146,8 @@ class DatadogClient:
     def _map_environment_resources(self, env):
         if not env or env == 'prod' or env == 'stage':
             logging.info("***** Relying on identity transformation for environment resources ***** ")
-            return [{'pattern': '(.*)', 'substitution': '$1'}]  # No change
+            return [{'pattern': '(?P<identity>.*)',
+                     'substitution': '{{identity}}'}]  # No change
         elif env == 'stage':
             return r'"(.+)\.edx.org|$1.stage.edx.org"'
         else:
