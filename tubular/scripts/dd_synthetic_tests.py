@@ -131,10 +131,11 @@ class DatadogClient:
             "DD-API-KEY": self.api_key,
             "DD-APPLICATION-KEY": self.app_key
         }
-        x = "(\w+)\.edx.org|1.stage.edx.org"
         json_request_body = {"tests": [{"public_id": test.public_id,
-                                        "startUrl" : test.start_url,
-                                        "resourceUrlSubstitutionRegexes": [self._map_environment_resources(test.env)]
+                                        "variables":
+                                            {"ENV_EDX_ORG":
+                                             "stage.edx.org" if self.env == 'stage' else "edx.org"
+                                            }
                                        }
                                        for test in self.tests_by_public_id.values()]}
         logging.info(f'Trigger request body: {json_request_body}')
@@ -142,15 +143,6 @@ class DatadogClient:
         if response.status_code != 200:
             raise Exception(f"Datadog API error. Status = {response.status_code}")
         return response
-
-    def _map_environment_resources(self, env):
-        if not env or env == 'prod' or env == 'stage':
-            logging.info("***** Relying on identity transformation for environment resources ***** ")
-            return '(?P<identity>.*)|{{identity}}'   # No change
-        elif env == 'stage':
-            return r'"(.+)\.edx.org|$1.stage.edx.org"'
-        else:
-            raise Exception(f'Unknown {env} environment')
 
     def _record_batch_id(self, response_body):
         '''
