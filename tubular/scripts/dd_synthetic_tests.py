@@ -34,9 +34,10 @@ class DatadogClient:
                 "dummy_url"  # Ditto
             )
 
-    def __init__(self, api_key, app_key):
+    def __init__(self, api_key, app_key, environment_name):
         self.api_key = api_key
         self.app_key = app_key
+        self.env = environment_name # 'prod' or 'stage', signalling the environment to run tests on
         self.test_batch_id = None   # A 'batch' is a set of tests intended to be run in parallel
         self.trigger_time = None    # The system time at which a batch's execution was requested
         self.timeout_secs = None    # The maximum number of seconds by which time all tests must be done
@@ -131,13 +132,10 @@ class DatadogClient:
             "DD-API-KEY": self.api_key,
             "DD-APPLICATION-KEY": self.app_key
         }
+        env_edx_org = "stage.edx.org" if self.env == 'stage' else "edx.org"
         json_request_body = {"tests": [{"public_id": test.public_id,
-                                        "variables":
-                                            {"ENV_EDX_ORG":
-                                             "stage.edx.org" if self.env == 'stage' else "edx.org"
-                                            }
-                                       }
-                                       for test in self.tests_by_public_id.values()]}
+                                        "variables": {"ENV_EDX_ORG": env_edx_org}
+                                       } for test in self.tests_by_public_id.values()]}
         logging.info(f'Trigger request body: {json_request_body}')
         response = requests.post(url, headers=headers, json=json_request_body)
         if response.status_code != 200:
@@ -264,13 +262,12 @@ def run_synthetic_tests(enable_automated_rollbacks, timeout, environment_name, t
     try:
         api_key = os.getenv("DATADOG_API_KEY")
         app_key = os.getenv("DATADOG_APP_KEY")
-        dd_client = DatadogClient(api_key, app_key)
+        dd_client = DatadogClient(api_key, app_key, environment_name)
         dd_client.timeout_secs = timeout
 
         tests_as_dicts = json.loads(tests)
         tests_to_report_on = [SyntheticTest(d["name"],
                                             d["public_id"],
-                                            environment_name,
                                             d["startUrl"])
                               for d in tests_as_dicts]
         dd_client.trigger_synthetic_tests(tests_to_report_on)
