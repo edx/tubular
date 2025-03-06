@@ -12,11 +12,9 @@ class SyntheticTest:
     '''
     Attributes for a Datadog synthetic test and its test run
     '''
-    def __init__(self, name, public_id, env, start_url):
+    def __init__(self, name, public_id):
         self.name = name            # The test's Datadog name
         self.public_id = public_id  # The test's Datadog Test ID
-        self.env = env              # The test environment ("stage" or "prod")
-        self.start_url = start_url  # The browser test's landing page
         self.test_run_id = None     # The run ID given by Datadog to this test's invocation
         self.success = None
 
@@ -30,8 +28,6 @@ class DatadogClient:
                 Deployment testing enable test governing CI/CD synthetic testing
                 ''',
                 "sad-hqu-h33",
-                "stage",     # Value will be ignored by test, but Datadog doesn't want it empty
-                "dummy_url"  # Ditto
             )
 
     def __init__(self, api_key, app_key, environment_name):
@@ -267,8 +263,7 @@ def run_synthetic_tests(enable_automated_rollbacks, timeout, environment_name, t
 
         tests_as_dicts = json.loads(tests)
         tests_to_report_on = [SyntheticTest(d["name"],
-                                            d["public_id"],
-                                            d["startUrl"])
+                                            d["public_id"])
                               for d in tests_as_dicts]
         dd_client.trigger_synthetic_tests(tests_to_report_on)
         dd_client.gate_on_deployment_testing_enable_switch() # Exits summarily if test results are to be ignored
