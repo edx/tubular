@@ -1,5 +1,7 @@
 # tubular
 
+(Note: This is the 2U fork of <https://github.com/openedx/tubular>, which has been deprecated from Open edX.)
+
 ## Overview
 Python scripts for integrating pipelines with various services/tools such as:
 * Asgard
