@@ -23,17 +23,13 @@ log = logging.getLogger(__name__)
     help="Authentication token to use for JSM Alerts API",
 )
 @click.option(
-    '--responders',
+    '--responder',
     required=True,
-    help="Name of JSM to page for this alert",
+    help="Name of JSM team to page",
 )
-def gocd_open_alert(auth_token, responders):
+def gocd_open_alert(auth_token, responder):
     """
-    Create an OpsGenie alert
-
-    Arguments:
-        auth_token: API token for Opsgenie/JSM
-        responders: The team responsible for the alert
+    Create an OpsGenie alert.
     """
     pipeline = os.environ['GO_PIPELINE_NAME']
     pipeline_counter = os.environ['GO_PIPELINE_COUNTER']
@@ -44,13 +40,14 @@ def gocd_open_alert(auth_token, responders):
 
     job_url = f'https://gocd.tools.edx.org/go/tab/build/detail/{pipeline}/{pipeline_counter}/{stage}/{stage_counter}/{job}'
 
+    # The alias should match the format used in tubular.scripts.gocd_close_alert.
     alias = f'gocd-pipeline-{pipeline}-{stage}-{job}'
     message = f"[GoCD] Build Failed on {pipeline}"
     description = f"Pipeline {pipeline} failed. Please see the build logs: {job_url} (triggered by {trigger_user})"
 
     log.info("Creating alert on Opsgenie")
     opsgenie = opsgenie_api.OpsGenieAPI(auth_token)
-    opsgenie.alert_opsgenie(message, description, responders, alias=alias)
+    opsgenie.alert_opsgenie(message, description, responder, alias=alias)
 
 
 if __name__ == '__main__':

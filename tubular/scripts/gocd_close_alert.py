@@ -33,6 +33,8 @@ def gocd_close_alert(auth_token):
     stage = os.environ['GO_STAGE_NAME']
     job = os.environ['GO_JOB_NAME']
 
+    # This has to match the format in tubular.scripts.gocd_open_alert because
+    # the open alert will be discovered by its alias.
     alias = f'gocd-pipeline-{pipeline}-{stage}-{job}'
 
     log.info(f"Closing alert {alias} on Opsgenie")

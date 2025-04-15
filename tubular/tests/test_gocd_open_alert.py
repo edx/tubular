@@ -21,7 +21,7 @@ class TestGocdOpenAlert(TestCase):
         script_run = CliRunner().invoke(
             open_alert.gocd_open_alert,
             catch_exceptions=False,
-            args=['--auth-token', 'XYZ', '--responders', 'Some Team'],
+            args=['--auth-token', 'XYZ', '--responder', 'Some Team'],
         )
 
         assert script_run.exit_code == 0
