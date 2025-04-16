@@ -1,5 +1,5 @@
 """
-Command-line script to submit an alert to Opsgenie Api.
+Command-line script to close any matching alert in Opsgenie/JSM.
 """
 
 import logging
