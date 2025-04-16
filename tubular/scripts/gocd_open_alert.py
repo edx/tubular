@@ -8,6 +8,7 @@ description fields.
 
 import logging
 import os
+import sys
 
 import click
 
@@ -31,6 +32,13 @@ def gocd_open_alert(auth_token, responder):
     """
     Create an OpsGenie alert.
     """
+    # Guard against a templated call to this script passing in an undefined
+    # variable (empty string). We would rather fail this call than silently
+    # create an alert that no one will see.
+    if not responder:
+        log.error("Responder field was empty -- refusing to create alert.")
+        sys.exit(1)
+
     pipeline = os.environ['GO_PIPELINE_NAME']
     pipeline_counter = os.environ['GO_PIPELINE_COUNTER']
     stage = os.environ['GO_STAGE_NAME']

@@ -18,6 +18,7 @@ class TestGocdOpenAlert(TestCase):
     })
     @patch('tubular.scripts.gocd_open_alert.opsgenie_api.OpsGenieAPI.alert_opsgenie')
     def test_create_alert(self, mock_opsgenie_open):
+        """Test basic alert creation."""
         script_run = CliRunner().invoke(
             open_alert.gocd_open_alert,
             catch_exceptions=False,
@@ -35,3 +36,15 @@ class TestGocdOpenAlert(TestCase):
             'Some Team',
             alias='gocd-pipeline-edxapp-build-prod',
         )
+
+    @patch('tubular.scripts.gocd_open_alert.log.error')
+    def test_check_responder(self, mock_log_error):
+        """Test that responder field can't be empty."""
+        script_run = CliRunner().invoke(
+            open_alert.gocd_open_alert,
+            catch_exceptions=False,
+            args=['--auth-token', 'XYZ', '--responder', ''],
+        )
+
+        assert script_run.exit_code == 1
+        mock_log_error.assert_called_once_with("Responder field was empty -- refusing to create alert.")
