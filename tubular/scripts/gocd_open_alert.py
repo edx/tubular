@@ -28,7 +28,12 @@ log = logging.getLogger(__name__)
     required=True,
     help="Name of JSM team to page",
 )
-def gocd_open_alert(auth_token, responder):
+@click.option(
+    '--runbook',
+    required=False,
+    help="URL of runbook to offer in alert",
+)
+def gocd_open_alert(auth_token, responder, runbook):
     """
     Create an OpsGenie alert.
     """
@@ -50,8 +55,13 @@ def gocd_open_alert(auth_token, responder):
 
     # The alias should match the format used in tubular.scripts.gocd_close_alert.
     alias = f'gocd-pipeline-{pipeline}-{stage}-{job}'
-    message = f"[GoCD] Build Failed on {pipeline}"
-    description = f"Pipeline {pipeline} failed. Please see the build logs: {job_url} (triggered by {trigger_user})"
+    message = f"[GoCD] Pipeline failed: {pipeline}"
+    description = (
+        f"Pipeline {pipeline} failed.\n\n"
+        f"- Runbook: {runbook or '<not provided>'}\n"
+        f"- Build logs: {job_url}\n"
+        f"- Triggered by: {trigger_user}\n"
+    )
 
     log.info("Creating alert on Opsgenie")
     opsgenie = opsgenie_api.OpsGenieAPI(auth_token)
