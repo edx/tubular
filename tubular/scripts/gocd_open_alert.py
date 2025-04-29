@@ -55,7 +55,7 @@ def gocd_open_alert(auth_token, responder, runbook):
 
     # The alias should match the format used in tubular.scripts.gocd_close_alert.
     alias = f'gocd-pipeline-{pipeline}-{stage}-{job}'
-    message = f"[GoCD] Pipeline failed: {pipeline}"
+    message = f"[GoCD] Pipeline failed: {pipeline}/{stage}/{job}"
     description = (
         f"Pipeline {pipeline} failed.\n\n"
         f"- Runbook: {runbook or '<not provided>'}\n"

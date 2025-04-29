@@ -32,7 +32,7 @@ class TestGocdOpenAlert(TestCase):
 
         assert script_run.exit_code == 0
         mock_opsgenie_open.assert_called_once_with(
-            "[GoCD] Pipeline failed: edxapp",
+            "[GoCD] Pipeline failed: edxapp/build/prod",
             (
                 "Pipeline edxapp failed.\n\n"
                 "- Runbook: https://example.com/wiki/runbook\n"
@@ -58,7 +58,7 @@ class TestGocdOpenAlert(TestCase):
 
         assert script_run.exit_code == 0
         mock_opsgenie_open.assert_called_once_with(
-            "[GoCD] Pipeline failed: edxapp",
+            "[GoCD] Pipeline failed: edxapp/build/prod",
             (
                 "Pipeline edxapp failed.\n\n"
                 "- Runbook: <not provided>\n" # difference is here
