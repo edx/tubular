@@ -1,9 +1,14 @@
 """
 Command-line script to create an alert for a GoCD pipeline.
 
-This is like alert_opsgenie.py except it picks up pipeline details from
-environment variables to automatically create the alias, message, and
-description fields.
+Picks up pipeline details from GoCD environment variables to derive the alias,
+message, and description fields.  (See `alert_opsgenie.py` for a version that
+allows full control of those fields.)
+
+This script is intended to be used with the "API - GoCD Integration" integration
+in Jira Service Management (previously Opsgenie):
+
+https://2u-internal.atlassian.net/jira/settings/products/ops/integrations/API/c15f0e6a-e15d-4659-ab1e-e0854c5fb5dc
 """
 
 import logging
@@ -21,7 +26,7 @@ log = logging.getLogger(__name__)
 @click.option(
     '--auth-token',
     required=True,
-    help="Authentication token to use for JSM Alerts API",
+    help="Integration API key to use for JSM Alerts API",
 )
 @click.option(
     '--responder',
@@ -35,7 +40,7 @@ log = logging.getLogger(__name__)
 )
 def gocd_open_alert(auth_token, responder, runbook):
     """
-    Create an OpsGenie alert.
+    Create an alert in JSM using GoCD environment variables.
     """
     # Guard against a templated call to this script passing in an undefined
     # variable (empty string). We would rather fail this call than silently
@@ -53,7 +58,9 @@ def gocd_open_alert(auth_token, responder, runbook):
 
     job_url = f'https://gocd.tools.edx.org/go/tab/build/detail/{pipeline}/{pipeline_counter}/{stage}/{stage_counter}/{job}'
 
-    # The alias should match the format used in tubular.scripts.gocd_close_alert.
+    # The integration will create alerts when the alias field starts with
+    # `gocd-pipeline-`. The entire alias should also be identical to the
+    # string produced by gocd_close_alert.py.
     alias = f'gocd-pipeline-{pipeline}-{stage}-{job}'
     message = f"[GoCD] Pipeline failed: {pipeline}/{stage}/{job}"
     description = (
@@ -63,7 +70,7 @@ def gocd_open_alert(auth_token, responder, runbook):
         f"- Triggered by: {trigger_user}\n"
     )
 
-    log.info("Creating alert on Opsgenie")
+    log.info(f"Creating alert in JSM with alias {alias}")
     opsgenie = opsgenie_api.OpsGenieAPI(auth_token)
     opsgenie.alert_opsgenie(message, description, responder, alias=alias)
 
