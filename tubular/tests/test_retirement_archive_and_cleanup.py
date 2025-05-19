@@ -5,14 +5,13 @@ Test the retirement_archive_and_cleanup.py script
 
 import datetime
 import os
-import unittest.mock as mock
+from unittest.mock import DEFAULT, patch
 
 import boto3
 import pytest
 from botocore.exceptions import ClientError
 from click.testing import CliRunner
-from mock import DEFAULT, call, patch
-from moto import mock_ec2, mock_s3
+from moto import mock_aws
 
 from tubular.scripts.retirement_archive_and_cleanup import (
     ERR_ARCHIVING, ERR_BAD_CLI_PARAM, ERR_BAD_CONFIG, ERR_DELETING,
@@ -85,7 +84,7 @@ def fake_learners_to_retire():
     get_learners_by_date_and_status=DEFAULT,
     bulk_cleanup_retirements=DEFAULT
 )
-@mock_s3
+@mock_aws
 def test_successful(*args, **kwargs):
     conn = boto3.resource('s3')
     conn.create_bucket(Bucket=FAKE_BUCKET_NAME)
@@ -114,8 +113,7 @@ def test_successful(*args, **kwargs):
     get_learners_by_date_and_status=DEFAULT,
     bulk_cleanup_retirements=DEFAULT
 )
-@mock_ec2
-@mock_s3
+@mock_aws
 def test_successful_with_batching(*args, **kwargs):
     conn = boto3.resource('s3')
     conn.create_bucket(Bucket=FAKE_BUCKET_NAME)
@@ -145,7 +143,7 @@ def test_successful_with_batching(*args, **kwargs):
     get_learners_by_date_and_status=DEFAULT,
     bulk_cleanup_retirements=DEFAULT
 )
-@mock_s3
+@mock_aws
 def test_successful_dry_run(*args, **kwargs):
     mock_get_access_token = args[0]
     mock_get_learners = kwargs['get_learners_by_date_and_status']
@@ -247,7 +245,7 @@ def test_conflicting_cool_off_date(*_):
     assert 'End date cannot occur within the cool_off_days period' in result.output
 
 
-@mock_s3
+@mock_aws
 def test_s3_upload_data():
     """
     Test case to verify s3 upload and download.

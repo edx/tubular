@@ -1,4 +1,6 @@
-FROM python:3.8-buster
+FROM ubuntu:jammy AS base
+
+ARG PYTHON_VERSION=3.11
 
 WORKDIR /app
 ADD . /app

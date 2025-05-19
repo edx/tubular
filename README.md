@@ -13,13 +13,16 @@ Python scripts for integrating pipelines with various services/tools such as:
 The scripts perform work to enable continuous delivery (CD) for https://edx.org. These scripts are called from various tasks/jobs/stages in GoCD pipelines - but could be called from any automation/CD framework.
 
 
-## Notice: Moved scripts
+## Retirement scripts in this repository versus edx-platform
 
-**Effective Date:** February 26, 2024
+### Repository Migration
 
-**Repository Migration:**
-Following scripts related to user retirement feature has been [deprecated](https://github.com/openedx/axim-engineering/issues/881)
-and migrated [here](https://github.com/openedx/edx-platform/tree/master/scripts/user_retirement) on `edx-platform` repository.
+On 26 February, 2024, having the following user retirement scripts in `tubular`
+was [deprecated](https://github.com/openedx/axim-engineering/issues/881) and
+migrated [to scripts/user_retirement](https://github.com/openedx/edx-platform/tree/master/scripts/user_retirement)
+in the `edx-platform` repository.
+
+The migration process was completed through [PR #34063](https://github.com/openedx/edx-platform/pull/34063).
 
 - `tubular/scripts/get_learners_to_retire.py`
 - `tubular/scripts/replace_usernames.py`
@@ -29,11 +32,9 @@ and migrated [here](https://github.com/openedx/edx-platform/tree/master/scripts/
 - `tubular/scripts/retirement_partner_report.py`
 - `tubular/scripts/structures.py`
 
-This decision was made to streamline and consolidate our codebase.
+### 2U Fork
 
-The migration process was completed through this Pull Request: [PR #34063](https://github.com/openedx/edx-platform/pull/34063)
-
-**2U Fork:** After being deprecated for Open edX, this repo has been forked into the `edx` GitHub org and is maintained by (and for) 2U.
+After being deprecated for Open edX, this repo was forked into the `edx` GitHub org and is maintained by (and for) 2U. Initially, on 13 March, 2024 2U switched from `tubular` to `edx-platform` versions of the retirement scripts, but in May 2025, 2U  temporarily switched back to running user from this repository,, in order to most efficiently solve the problem of divergent third-party retirement streams.
 
 ## Configuration
 ```
