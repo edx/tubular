@@ -5,7 +5,7 @@ Test the retirement_archive_and_cleanup.py script
 
 import datetime
 import os
-from unittest.mock import DEFAULT, patch
+from unittest.mock import DEFAULT, call, patch
 
 import boto3
 import pytest

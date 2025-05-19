@@ -1,6 +1,7 @@
 CHANGES
 =======
 
+* chore: modified non-retirement scripts  for package update
 * chore: reinstating tubular to prod-ready for retirement
 * fix: Remove broken script symlinks (#36)
 * docs: Clean up GoCD alert script docs (#35)
