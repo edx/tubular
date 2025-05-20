@@ -34,7 +34,7 @@ The migration process was completed through [PR #34063](https://github.com/opene
 
 ### 2U Fork
 
-After being deprecated for Open edX, this repo was forked into the `edx` GitHub org and is maintained by (and for) 2U. Initially, on 13 March, 2024 2U switched from `tubular` to `edx-platform` versions of the retirement scripts, but in May 2025, 2U  temporarily switched back to running user from this repository,, in order to most efficiently solve the problem of divergent third-party retirement streams.
+After being deprecated for Open edX, this repo was forked into the `edx` GitHub org and is maintained by (and for) 2U. Initially, on 13 March, 2024 2U switched from `tubular` to `edx-platform` versions of the retirement scripts, but in May 2025, 2U  temporarily switched back to running user from this repository, in order to most efficiently solve the problem of divergent third-party retirement streams.
 
 ## Configuration
 ```
