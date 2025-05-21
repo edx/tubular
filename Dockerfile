@@ -36,4 +36,4 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 WORKDIR /app
 ADD . /app
 
-RUN pip install .
+RUN pip install -r requirements.txt
