@@ -29,7 +29,7 @@ RUN apt-get update && apt-get -qy install --no-install-recommends \
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION}
 RUN pip install virtualenv
 # create our Python virtual env
-ENV VIRTUAL_ENV=/edx/venvs/credentials
+ENV VIRTUAL_ENV=/edx/venvs/tubular
 RUN virtualenv -p python$PYTHON_VERSION $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
