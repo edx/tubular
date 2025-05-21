@@ -24,6 +24,14 @@ RUN apt-get update && apt-get -qy install --no-install-recommends \
         python${PYTHON_VERSION} \
         python${PYTHON_VERSION}-dev
 
+# need to use virtualenv pypi package with Python 3.11
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION}
+RUN pip install virtualenv
+# create our Python virtual env
+ENV VIRTUAL_ENV=/edx/venvs/credentials
+RUN virtualenv -p python$PYTHON_VERSION $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 WORKDIR /app
 ADD . /app
 
