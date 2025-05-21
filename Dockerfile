@@ -19,6 +19,7 @@ RUN apt-get update && \
 # If you add a package here please include a comment above describing what it is used for
 RUN apt-get update && apt-get -qy install --no-install-recommends \
         build-essential \
+        curl \
         language-pack-en \
         locales \
         python${PYTHON_VERSION} \
