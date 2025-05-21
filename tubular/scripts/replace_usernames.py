@@ -21,7 +21,6 @@ import yaml
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from tubular.edx_api import CredentialsApi, DiscoveryApi, EcommerceApi, LmsApi  # pylint: disable=wrong-import-position
-from tubular.utils.deprecation import deprecated_script
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
@@ -43,7 +42,6 @@ def write_responses(writer, replacements, status):
     '--username_replacement_csv',
     help='File in which YAML config exists that overrides all other params.'
 )
-@deprecated_script
 def replace_usernames(config_file, username_replacement_csv):
     """
     Retrieves a JWT token as the retirement service user, then calls the LMS

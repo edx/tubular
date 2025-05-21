@@ -2,8 +2,9 @@
 Test the retire_one_learner.py script
 """
 
+from unittest.mock import DEFAULT, patch
+
 from click.testing import CliRunner
-from mock import DEFAULT, patch
 
 from tubular.exception import HttpDoesNotExistException
 from tubular.scripts.retire_one_learner import (
