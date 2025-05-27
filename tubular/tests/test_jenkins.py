@@ -2,14 +2,14 @@
 Tests for triggering a Jenkins job.
 """
 
-from itertools import islice
 import json
 import re
 import unittest
+from itertools import islice
+from unittest.mock import Mock, mock_open, patch, call
 
 import backoff
 import ddt
-from mock import Mock, mock_open, patch, call
 import requests_mock
 
 from tubular.exception import BackendError

@@ -5,7 +5,6 @@ Tests of the utility code.
 from copy import copy
 import six
 import boto3
-from moto import mock_ec2
 
 
 def create_asg_with_tags(asg_name, tags, ami_id="ami-abcd1234", elbs=None):
