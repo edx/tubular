@@ -24,6 +24,7 @@ from tubular.scripts.helpers import (
     _log,
     _setup_lms_api_or_exit
 )
+from tubular.utils.deprecation import deprecated_script
 
 
 SCRIPT_SHORTNAME = 'Bulk Status'
@@ -127,6 +128,7 @@ def _update_learners_or_exit(config, learners, new_state=None, rewind_state=Fals
     default=False,
     is_flag=True
 )
+@deprecated_script
 def update_statuses(config_file, initial_state, new_state, start_date, end_date, rewind_state):
     """
     Bulk-updates user retirement statuses which are in the specified state -and- retirement was

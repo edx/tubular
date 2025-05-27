@@ -26,6 +26,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 from tubular.scripts.helpers import (
     _config_or_exit, _fail, _fail_exception, _log, _setup_lms_api_or_exit
 )
+from tubular.utils.deprecation import deprecated_script
 
 
 SCRIPT_SHORTNAME = 'Archive and Cleanup'
@@ -263,6 +264,7 @@ def _get_utc_now():
     help='Number of user retirements to process',
     type=int
 )
+@deprecated_script
 def archive_and_cleanup(config_file, cool_off_days, dry_run, start_date, end_date, batch_size):
     """
     Cleans up UserRetirementStatus rows in LMS by:
