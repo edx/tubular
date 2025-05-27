@@ -10,7 +10,7 @@ import mock
 import requests_mock
 
 from ddt import ddt, data, unpack
-from moto import mock_aws
+from moto import mock_ec2, mock_autoscaling, mock_elb
 from moto.ec2.utils import random_ami_id
 from six.moves import urllib, reload_module
 import tubular.asgard as asgard
@@ -840,7 +840,8 @@ class TestAsgard(unittest.TestCase):
         with mock.patch("tubular.ec2.remove_asg_deletion_tag"):
             self.assertRaises(CannotDeleteLastASG, asgard.delete_asg, asg)
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
     @data(*itertools.product(
         ((asgard.ASG_ACTIVATE_URL, asgard.enable_asg), (asgard.ASG_DEACTIVATE_URL, asgard.disable_asg)),
         (True, False)
@@ -906,7 +907,9 @@ class TestAsgard(unittest.TestCase):
         else:
             self.assertRaises(BackendError, test_function, asg)
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_deploy_asg_error_did_not_create_multiple_asgs(self, req_mock):
         """
         Test that new_asg is not called more than the number of asgs that
@@ -944,7 +947,9 @@ class TestAsgard(unittest.TestCase):
             pass
         self.assertEqual(1, counter)  # We fail midway here, so we dont expect additional calls to new_asg
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_deploy_asg_rate_limit_did_not_create_multiple_asgs(self, req_mock):
         """
         Test that new_asg is not called more than the number of asgs that are
@@ -1186,7 +1191,9 @@ class TestAsgard(unittest.TestCase):
                 json=deleted_asg_in_progress(asg),
                 status_code=response_code)
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_deploy_asg_failed(self, req_mock):
         ami_id = self._setup_for_deploy(
             req_mock,
@@ -1194,7 +1201,9 @@ class TestAsgard(unittest.TestCase):
         )
         self.assertRaises(Exception, asgard.deploy, ami_id)
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_deploy_enable_asg_failed(self, req_mock):
         ami_id = self._setup_for_deploy(
             req_mock,
@@ -1203,14 +1212,18 @@ class TestAsgard(unittest.TestCase):
         )
         self.assertRaises(Exception, asgard.deploy, ami_id)
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_deploy_elb_health_failed(self, req_mock):
         ami_id = self._setup_for_deploy(req_mock, COMPLETED_SAMPLE_TASK, COMPLETED_SAMPLE_TASK)
         mock_function = "tubular.ec2.wait_for_healthy_elbs"
         with mock.patch(mock_function, side_effect=Exception("Never became healthy.")):
             self.assertRaises(Exception, asgard.deploy, ami_id)
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_deploy(self, req_mock):
         ami_id = self._setup_for_deploy(req_mock)
 
@@ -1261,7 +1274,9 @@ class TestAsgard(unittest.TestCase):
 
         self.assertEqual(expected_output, asgard.deploy(ami_id))
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_deploy_new_asg_disabled(self, req_mock):
         ami_id = self._setup_for_deploy(req_mock)
         asgs = ["loadtest-edx-edxapp-v058", "loadtest-edx-edxapp-v059",
@@ -1281,7 +1296,9 @@ class TestAsgard(unittest.TestCase):
             )
         self.assertRaises(BackendError, asgard.deploy, ami_id)
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_rollback(self, req_mock):
         ami_id = self._setup_for_deploy(req_mock)
 
@@ -1441,7 +1458,9 @@ class TestAsgard(unittest.TestCase):
             json=VALID_CLUSTER_JSON_INFO
         )
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_rollback_with_failure_and_with_redeploy(self, req_mock):
         self._setup_rollback(req_mock)
 
@@ -1488,7 +1507,9 @@ class TestAsgard(unittest.TestCase):
             expected_output
         )
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_rollback_with_failure_and_without_redeploy(self, req_mock):
         self._setup_rollback(req_mock)
 
@@ -1538,7 +1559,9 @@ class TestAsgard(unittest.TestCase):
             expected_output
         )
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_rollback_with_failure_and_asgs_tagged_for_deletion(self, req_mock):
         self._setup_rollback(req_mock)
 
@@ -1589,7 +1612,9 @@ class TestAsgard(unittest.TestCase):
             expected_output
         )
 
-    @mock_aws
+    @mock_autoscaling
+    @mock_ec2
+    @mock_elb
     def test_rollback_asg_does_not_exist(self, req_mock):
         self._setup_rollback_deleted(req_mock)
 

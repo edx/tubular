@@ -17,6 +17,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from tubular.edx_api import LmsApi  # pylint: disable=wrong-import-position
 from tubular.jenkins import export_learner_job_properties  # pylint: disable=wrong-import-position
+from tubular.utils.deprecation import deprecated_script
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ LOG = logging.getLogger(__name__)
          "setting then it will not error.",
     default=200
 )
+@deprecated_script
 def get_learners_to_retire(config_file,
                            cool_off_days,
                            output_dir,

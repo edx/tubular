@@ -4,10 +4,11 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ['3.11']
+        os: [ubuntu-24.04]
+        python-version: ['3.8']
     steps:
     - uses: actions/checkout@v4
       with:
@@ -22,7 +23,7 @@ jobs:
     - run: tox -- -n0
 
     - name: Run coverage
-      if: matrix.python-version == '3.11'
+      if: matrix.python-version == '3.8'
       uses: codecov/codecov-action@v3
       with:
         flags: unittests

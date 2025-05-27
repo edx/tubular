@@ -7,7 +7,7 @@ Test the retire_one_learner.py script
 import os
 
 from click.testing import CliRunner
-from unittest.mock import patch
+from mock import patch
 
 from tubular.scripts.delete_expired_partner_gdpr_reports import (
     ERR_NO_CONFIG,
