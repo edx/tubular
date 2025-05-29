@@ -10,11 +10,9 @@ base_urls:
     lms: http://localhost:18000/
     ecommerce: http://localhost:18130/
     credentials: http://localhost:18150/
-    demographics: http://localhost:18360/
 retirement_pipeline:
     - ['RETIRING_CREDENTIALS', 'CREDENTIALS_COMPLETE', 'CREDENTIALS', 'retire_learner']
     - ['RETIRING_ECOM', 'ECOM_COMPLETE', 'ECOMMERCE', 'retire_learner']
-    - ['RETIRING_DEMOGRAPHICS', 'DEMOGRAPHICS_COMPLETE', 'DEMOGRAPHICS', 'retire_learner']
     - ['RETIRING_LICENSE_MANAGER', 'LICENSE_MANAGER_COMPLETE', 'LICENSE_MANAGER', 'retire_learner']
     - ['RETIRING_FORUMS', 'FORUMS_COMPLETE', 'LMS', 'retirement_retire_forum']
     - ['RETIRING_EMAIL_LISTS', 'EMAIL_LISTS_COMPLETE', 'LMS', 'retirement_retire_mailings']
@@ -43,7 +41,6 @@ from tubular.scripts.helpers import (
     _log,
     _setup_all_apis_or_exit
 )
-from tubular.utils.deprecation import deprecated_script
 
 # Return codes for various fail cases
 ERR_SETUP_FAILED = -1
@@ -155,7 +152,6 @@ def _get_ecom_segment_id(config, learner):
     '--config_file',
     help='File in which YAML config exists that overrides all other params.'
 )
-@deprecated_script
 def retire_learner(
         username,
         config_file
