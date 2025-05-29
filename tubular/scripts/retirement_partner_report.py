@@ -29,7 +29,6 @@ from tubular.scripts.helpers import (
     _log,
     _setup_lms_api_or_exit
 )
-from tubular.utils.deprecation import deprecated_script
 
 # Return codes for various fail cases
 ERR_SETUP_FAILED = -1
@@ -355,7 +354,6 @@ def _add_comments_to_files(config, file_ids):
     default=True,
     help='Do or skip adding notification comments to the reports.'
 )
-@deprecated_script
 def generate_report(config_file, google_secrets_file, output_dir, comments):
     """
     Retrieves a JWT token as the retirement service learner, then performs the reporting process as that user.
