@@ -21,8 +21,13 @@ from six import text_type
 # Add top-level module path to sys.path before importing tubular code.
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from tubular.edx_api import CredentialsApi, EcommerceApi, LicenseManagerApi, \
-    LmsApi  # pylint: disable=wrong-import-position
+from tubular.edx_api import (
+    CommerceCoordinatorApi,
+    CredentialsApi,
+    EcommerceApi,
+    LicenseManagerApi,
+    LmsApi,
+)
 from tubular.braze_api import BrazeApi  # pylint: disable=wrong-import-position
 from tubular.segment_api import SegmentApi  # pylint: disable=wrong-import-position
 from tubular.salesforce_api import SalesforceApi  # pylint: disable=wrong-import-position
@@ -153,6 +158,7 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
         credentials_base_url = config['base_urls'].get('credentials', None)
         segment_base_url = config['base_urls'].get('segment', None)
         license_manager_base_url = config['base_urls'].get('license_manager', None)
+        commerce_coordinator_base_url = config['base_urls'].get('commerce_coordinator', None)
         client_id = config['client_id']
         client_secret = config['client_secret']
         braze_api_key = config.get('braze_api_key', None)
@@ -179,6 +185,7 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
                     ('CREDENTIALS', credentials_base_url),
                     ('SEGMENT', segment_base_url),
                     ('HUBSPOT', hubspot_api_key),
+                    ('COMMERCE_COORDINATOR', commerce_coordinator_base_url),
             ):
                 if state[2] == service and service_url is None:
                     fail_func(fail_code, 'Service URL is not configured, but required for state {}'.format(state))
@@ -233,6 +240,14 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
                 segment_base_url,
                 segment_auth_token,
                 segment_workspace_slug
+            )
+
+        if commerce_coordinator_base_url:
+            config['COMMERCE_COORDINATOR'] = CommerceCoordinatorApi(
+                lms_base_url,
+                commerce_coordinator_base_url,
+                client_id,
+                client_secret,
             )
     except Exception as exc:  # pylint: disable=broad-except
         fail_func(fail_code, 'Unexpected error occurred!', exc)
