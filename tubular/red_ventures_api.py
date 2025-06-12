@@ -50,9 +50,7 @@ class RedVenturesApi:
 
     def get_token(self):
         token = GetToken(self.auth_url, self.username, client_secret=self.password)
-        token.client_credentials(self.audience)
-
-        return token
+        return token.client_credentials(self.audience)
 
     @backoff.on_exception(
         backoff.expo,
