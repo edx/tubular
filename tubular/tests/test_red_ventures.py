@@ -27,7 +27,20 @@ class TestRedVentures(unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = {"user": {"id": "1234", "original_email": "fonzie@example.com"}}
+        self.user = {
+            "id": 425497,
+            "user": {
+                "id": 64298028,
+                "username": "fonzie",
+                "email": "retired__user_8675309@retired.invalid",
+                "profile": {"id": 8675309, "name": "Arthur Fonzarelli"},
+            },
+            "original_username": "fonzie",
+            "original_email": "fonzie@example.com",
+            "original_name": "Arthur Fonzarelli",
+            "retired_username": "retired__user_8675309",
+            "retired_email": "retired__user_8675309@retired.invalid",
+        }
         self.red_ventures = RedVenturesApi(
             "test_audience",
             "https://test_auth_url",

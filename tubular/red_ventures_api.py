@@ -79,7 +79,7 @@ class RedVenturesApi:
             "Content-Type": "application/json",
         }
 
-        email = user["user"].get("original_email", None)
+        email = user.get("original_email", None)
         if not email:
             raise TypeError(
                 "Expected an email address for user to delete, but received None."
