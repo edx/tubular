@@ -28,11 +28,12 @@ from tubular.edx_api import (
     LicenseManagerApi,
     LmsApi,
 )
-from tubular.braze_api import BrazeApi  # pylint: disable=wrong-import-position
-from tubular.segment_api import SegmentApi  # pylint: disable=wrong-import-position
-from tubular.salesforce_api import SalesforceApi  # pylint: disable=wrong-import-position
-from tubular.hubspot_api import HubspotAPI  # pylint: disable=wrong-import-position
 from tubular.amplitude_api import AmplitudeApi  # pylint: disable=wrong-import-position
+from tubular.braze_api import BrazeApi  # pylint: disable=wrong-import-position
+from tubular.hubspot_api import HubspotAPI  # pylint: disable=wrong-import-position
+from tubular.red_ventures_api import RedVenturesApi  # pylint: disable=wrong-import-position
+from tubular.salesforce_api import SalesforceApi  # pylint: disable=wrong-import-position
+from tubular.segment_api import SegmentApi  # pylint: disable=wrong-import-position
 
 
 def _log(kind, message):
@@ -176,6 +177,11 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
         hubspot_aws_region = config.get('hubspot_aws_region', None)
         hubspot_from_address = config.get('hubspot_from_address', None)
         hubspot_alert_email = config.get('hubspot_alert_email', None)
+        red_ventures_username = config.get('red_ventures_username', None)
+        red_ventures_password = config.get('red_ventures_password', None)
+        red_ventures_audience = config.get('red_ventures_audience', None)
+        red_ventures_auth_url = config.get('red_ventures_auth_url', None)
+        red_ventures_deletion_url = config.get('red_ventures_deletion_url', None)
 
         for state in config['retirement_pipeline']:
             for service, service_url in (
@@ -186,6 +192,7 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
                     ('SEGMENT', segment_base_url),
                     ('HUBSPOT', hubspot_api_key),
                     ('COMMERCE_COORDINATOR', commerce_coordinator_base_url),
+                    ('RED_VENTURES', red_ventures_auth_url),
             ):
                 if state[2] == service and service_url is None:
                     fail_func(fail_code, 'Service URL is not configured, but required for state {}'.format(state))
@@ -248,6 +255,15 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
                 commerce_coordinator_base_url,
                 client_id,
                 client_secret,
+            )
+
+        if red_ventures_auth_url:
+            config['RED_VENTURES'] = RedVenturesApi(
+                red_ventures_audience,
+                red_ventures_auth_url,
+                red_ventures_deletion_url,
+                red_ventures_username,
+                red_ventures_password,
             )
     except Exception as exc:  # pylint: disable=broad-except
         fail_func(fail_code, 'Unexpected error occurred!', exc)
