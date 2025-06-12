@@ -1,6 +1,7 @@
 CHANGES
 =======
 
+* feat:  adding commerce tools to retirement pipeline
 * chore: readme fixes
 * chore: undeprecating retirement
 * Revert "chore: reinstating tubular to prod-ready for retirement"
