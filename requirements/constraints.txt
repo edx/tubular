@@ -18,3 +18,7 @@ setuptools<60
 google-api-python-client<2
 moto<5.0
 cloudflare<3.0
+# boto3 and edx-opaque-keys caused problems on recent make upgrades as of https://github.com/edx/tubular/pull/41
+# The right solution here is to upgrade Python and fix all these constraints.
+boto3==1.35.54
+edx-opaque-keys==2.11.0

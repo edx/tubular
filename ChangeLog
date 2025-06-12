@@ -1,6 +1,8 @@
 CHANGES
 =======
 
+* chore: no 429s in RV
+* feat: allowing deletion from red ventures
 * feat:  adding commerce tools to retirement pipeline
 * chore: readme fixes
 * chore: undeprecating retirement
