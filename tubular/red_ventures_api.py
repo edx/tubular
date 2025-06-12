@@ -102,9 +102,8 @@ class RedVenturesApi:
             )
         )
         logger.error(error_msg)
-        # Status 429 is returned when there are too many requests.
         # 5xx errors might be temporary,  if something strange is happening on the server side.
-        if response.status_code == 429 or 500 <= response.status_code < 600:
+        if 500 <= response.status_code < 600:
             raise RedVenturesRecoverableException(error_msg)
         else:
             raise RedVenturesException(error_msg)
