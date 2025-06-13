@@ -67,8 +67,8 @@ class TestRedVentures(unittest.TestCase):
 
     @mock.patch("tubular.red_ventures_api.RedVenturesApi.get_token")
     def test_delete_happy_path(self, req_mock, get_token_mock):
-        """Verify status_code 201 is treated as successful"""
-        self._mock_delete(req_mock, 201)
+        """Verify status_code 204 is treated as successful"""
+        self._mock_delete(req_mock, 204)
         get_token_mock.return_value = self.auth_token
         logger = logging.getLogger("tubular.red_ventures_api")
         with mock.patch.object(logger, "info") as mock_info:
