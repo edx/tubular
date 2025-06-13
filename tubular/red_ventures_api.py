@@ -88,7 +88,7 @@ class RedVenturesApi:
             self.deletion_url, params={"email": email}, headers=headers
         )
 
-        if response.status_code == 201:
+        if response.status_code == 204:
             logger.info("Red Ventures user deletion succeeded")
             return
 
