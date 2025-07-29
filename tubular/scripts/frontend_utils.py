@@ -131,6 +131,7 @@ class FrontendBuilder(FrontendUtils):
         npm_private = self.get_npm_private_config()
         if npm_private:
             install_list = ' '.join(npm_private)
+            self.LOG(f'Installing private NPM packages: {install_list}')
             install_private_proc = subprocess.Popen(
                 [f'npm install {install_list}'],
                 cwd=self.app_name,
@@ -141,6 +142,8 @@ class FrontendBuilder(FrontendUtils):
                 self.FAIL(1, 'Could not run `npm install {}` for app {}.'.format(
                     install_list, self.app_name
                 ))
+            else:
+                self.LOG(f'Successfully installed private NPM packages for app {self.app_name}')
 
     def get_npm_aliases_config(self):
         """ Combines the common and environment configs NPM_ALIASES data """
@@ -195,10 +198,59 @@ class FrontendBuilder(FrontendUtils):
         destination = f"{app_name}/{filename}"
         try:
             shutil.copyfile(source, destination)
+            self.LOG(f"Successfully copied JS config file from '{source}' to '{destination}'")
         except FileNotFoundError:
             self.FAIL(1, f"Could not find '{source}' for copying for app {app_name}.")
         except OSError:
             self.FAIL(1, f"Could not copy '{source}' to '{destination}', due to destination not writable.")
+
+    def ensure_datadog_config_for_site(self, site_app_config, hostname):
+        """
+        Ensures Datadog configuration is properly set up for a multi-site build.
+        This method validates that all required Datadog environment variables are present
+        and adds site-specific configuration if needed.
+        """
+        datadog_vars = [
+            'DATADOG_APPLICATION_ID',
+            'DATADOG_CLIENT_TOKEN', 
+            'DATADOG_SITE',
+            'DATADOG_SERVICE',
+            'DATADOG_ENV'
+        ]
+        
+        missing_vars = [var for var in datadog_vars if not site_app_config.get(var)]
+        if missing_vars:
+            self.LOG(f"Warning: Missing Datadog configuration for site '{hostname}': {missing_vars}")
+        else:
+            self.LOG(f"Datadog RUM configuration validated for site '{hostname}'")
+            
+        # Add hostname to service name for better tracking if configured
+        if site_app_config.get('DATADOG_SERVICE') and hostname:
+            original_service = site_app_config['DATADOG_SERVICE']
+            # Only modify if it doesn't already include the hostname
+            if hostname not in original_service:
+                site_app_config['DATADOG_SERVICE'] = f"{original_service}-{hostname}"
+                self.LOG(f"Updated Datadog service name to '{site_app_config['DATADOG_SERVICE']}' for site '{hostname}'")
+        
+        return site_app_config
+
+    def validate_js_config_and_logging(self, app_name):
+        """
+        Validates that JavaScript configuration and logging setup is working correctly.
+        This helps ensure that Datadog RUM and logging integrations are properly configured.
+        """
+        js_config_path = os.path.join(app_name, "env.config.js")
+        if os.path.exists(js_config_path):
+            self.LOG(f"JavaScript config file found at {js_config_path}")
+            
+            # Check if @edx/frontend-logging is available in node_modules
+            logging_package_path = os.path.join(app_name, "node_modules", "@edx", "frontend-logging")
+            if os.path.exists(logging_package_path):
+                self.LOG("@edx/frontend-logging package is properly installed")
+            else:
+                self.LOG("Warning: @edx/frontend-logging package not found in node_modules")
+        else:
+            self.LOG(f"No JavaScript config file found at {js_config_path}")
 
 
 class FrontendDeployer(FrontendUtils):

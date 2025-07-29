@@ -42,7 +42,33 @@ MULTISITE_PATH = './multisite/dist'
 )
 def frontend_build(common_config_file, env_config_file, app_name, version_file):
     """
-    Builds a frontend application.
+    Builds a frontend application with multi-site support.
+
+    This script is specifically designed for multi-site micro-frontend applications
+    like frontend-app-learner-portal-programs. It handles:
+    
+    1. Private NPM package installation (e.g., @edx/frontend-logging for Datadog)
+    2. JavaScript-based configuration files (env.config.js)
+    3. Site-specific environment variable configuration
+    4. Datadog RUM integration with per-site tracking
+    5. Multi-site build orchestration
+
+    For Datadog RUM integration to work properly, ensure the following configuration
+    is present in your environment config files:
+    
+    APP_CONFIG:
+      DATADOG_APPLICATION_ID: "your-app-id"
+      DATADOG_CLIENT_TOKEN: "your-client-token" 
+      DATADOG_SITE: "datadoghq.com"
+      DATADOG_SERVICE: "your-service-name"
+      DATADOG_ENV: "prod|stg|dev"
+      DATADOG_SESSION_SAMPLE_RATE: 20
+      DATADOG_SESSION_REPLAY_SAMPLE_RATE: 0
+      DATADOG_LOGS_SESSION_SAMPLE_RATE: 100
+      JS_CONFIG_FILEPATH: "/path/to/env.config.js"
+    
+    NPM_PRIVATE:
+      - "@edx/frontend-logging@^4.0.2"
 
     Uses the provided common and environment-specific configuration files to pass
     environment variables to the frontend build.
@@ -74,15 +100,34 @@ def frontend_build(common_config_file, env_config_file, app_name, version_file):
         shutil.rmtree(multisite_directory_path)
     multisite_sites = builder.env_cfg.get('MULTISITE', [])
     os.makedirs(MULTISITE_PATH)
+    
+    LOG(f'Building {len(multisite_sites)} sites for multi-site application {app_name}')
+    
     for site_obj in multisite_sites:
         hostname = site_obj.get('HOSTNAME')
         if not hostname:
             FAIL(1, 'HOSTNAME is not set for a site in in app {}.'.format(app_name))
 
+        LOG(f'Building site: {hostname} for app {app_name}')
+
         site_app_config = {}
         site_app_config.update(app_config)
         site_app_config.update(site_obj.get('APP_CONFIG', {}))
         site_app_config.update({'HOSTNAME': hostname})
+        
+        # Ensure Datadog configuration is properly set up for this site
+        site_app_config = builder.ensure_datadog_config_for_site(site_app_config, hostname)
+        
+        # Copy JavaScript config file for this site if specified
+        builder.copy_js_config_file_to_app_root(site_app_config, app_name)
+        
+        # Install private packages again to ensure they're available for this build
+        # This ensures packages like @edx/frontend-logging are available for each site
+        builder.install_requirements_npm_private()
+        
+        # Validate that logging and JS config are properly set up
+        builder.validate_js_config_and_logging(app_name)
+        
         env_vars = ['{}={}'.format(k, v) for k, v in site_app_config.items()]
         builder.build_app(
             env_vars,
@@ -92,6 +137,7 @@ def frontend_build(common_config_file, env_config_file, app_name, version_file):
         # Move built app from ./dist to a folder named after the site in the temporary
         # multisite directory. Since the build step uses app_name as a current working directory,
         # we need to move the files within that location.
+        LOG(f'Moving build output for site {hostname}')
         os.renames(
             os.path.join('.', app_name, 'dist'),
             os.path.join('.', app_name, MULTISITE_PATH, hostname)
@@ -100,12 +146,16 @@ def frontend_build(common_config_file, env_config_file, app_name, version_file):
     # Move the temporary directory down to `./dist` for deployment. The ./dist directory
     # will be non-existant since it was moved after each build. Since the build step uses app_name
     # as a current working directory, we need to move the files within that location.
+    LOG(f'Finalizing multi-site build for {app_name}')
     os.renames(
         os.path.join('.', app_name, MULTISITE_PATH),
         os.path.join('.', app_name, 'dist')
     )
 
     builder.create_version_file()
+    
+    LOG(f'Successfully completed multi-site build for {app_name} with {len(multisite_sites)} sites')
+    LOG(f'Sites built: {[site.get("HOSTNAME") for site in multisite_sites]}')
 
 
 if __name__ == "__main__":

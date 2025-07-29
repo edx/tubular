@@ -1,0 +1,81 @@
+# Multi-Site Frontend Application Configuration Example
+# 
+# This example shows how to configure a multi-site MFE with Datadog RUM integration
+# for use with the enhanced frontend_multi_build.py script.
+
+# Example configuration for frontend-app-learner-portal-programs or similar multi-site apps
+
+BUCKET_NAME: "your-s3-bucket-name"
+
+APP_CONFIG:
+  # Base application configuration
+  BASE_URL: "https://your-domain.com"
+  
+  # Datadog RUM Configuration
+  # These variables are required for Datadog Real User Monitoring to work properly
+  DATADOG_APPLICATION_ID: "your-datadog-application-id"
+  DATADOG_CLIENT_TOKEN: "your-datadog-client-token"
+  DATADOG_SITE: "datadoghq.com"  # or datadoghq.eu for EU
+  DATADOG_SERVICE: "your-frontend-app-name"  # Will be suffixed with site hostname
+  DATADOG_ENV: "prod"  # or "stg", "dev", etc.
+  DATADOG_SESSION_SAMPLE_RATE: 20  # Percentage of sessions to track
+  DATADOG_SESSION_REPLAY_SAMPLE_RATE: 0  # Usually 0 for privacy
+  DATADOG_LOGS_SESSION_SAMPLE_RATE: 100  # Percentage of sessions to log
+  
+  # JavaScript configuration file path (contains DatadogLoggingService setup)
+  JS_CONFIG_FILEPATH: "/path/to/your/env.config.js"
+  LOCAL_JS_CONFIG_FILENAME: "env.config.js"  # Optional, defaults to env.config.js
+  
+  # Other app-specific configuration
+  ENABLE_NOTICES: true
+  ENABLE_PATH_PREFIX: true
+
+# Private NPM packages required for Datadog integration
+NPM_PRIVATE:
+  - "@edx/frontend-logging@^4.0.2"  # Required for Datadog logging
+
+# NPM package aliases if needed
+NPM_ALIASES:
+  "@edx/brand": "npm:@edx/brand-edx.org@1.x"
+
+# Multi-site configuration
+# Each site will get its own build with Datadog tracking per site
+MULTISITE:
+  - HOSTNAME: "site1"
+    APP_CONFIG:
+      # Site-specific overrides (optional)
+      IDP_SLUG: "saml-site1"
+      
+  - HOSTNAME: "site2" 
+    APP_CONFIG:
+      IDP_SLUG: "saml-site2"
+      # You can override Datadog settings per site if needed
+      # DATADOG_SESSION_SAMPLE_RATE: 50  # Higher sampling for this site
+      
+  - HOSTNAME: "site3"
+    APP_CONFIG:
+      UNBRANDED_LANDING_PAGE: true
+
+# Notes:
+# 1. The frontend_multi_build.py script will:
+#    - Install @edx/frontend-logging for each site build
+#    - Copy the JS config file to each site's build directory  
+#    - Set up Datadog service names as "your-frontend-app-name-site1", etc.
+#    - Validate that all required packages and configs are present
+#
+# 2. Your env.config.js file should look like:
+#    ```javascript
+#    import { DatadogLoggingService } from '@edx/frontend-logging';
+#    
+#    const config = {
+#      loggingService: DatadogLoggingService,
+#    };
+#    
+#    export default config;
+#    ```
+#
+# 3. Make sure your application code uses the logging service:
+#    ```javascript
+#    import { getConfig } from '@edx/frontend-platform';
+#    import { logError, logInfo } from '@edx/frontend-platform/logging';
+#    ```
