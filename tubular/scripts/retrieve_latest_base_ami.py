@@ -48,7 +48,7 @@ log = logging.getLogger(__name__)
 )
 @click.option(
     '--ubuntu_version',
-    help='Override AMI id to use',
+    help='Ubuntu version to use (numeric)',
 )
 @click.option(
     '--region',
@@ -73,7 +73,11 @@ def retrieve_latest_base_ami(environment, deployment, play, override, ubuntu_ver
         else:
             url = ""
             click.secho('Ubuntu version requested: {}'.format(ubuntu_version), fg='green')
-            if ubuntu_version == "20.04":
+            # NOTE: The next LTS, noble, isn't present. Not sure why.
+            if ubuntu_version == "22.04":
+                url = "https://cloud-images.ubuntu.com/query/jammy/server/released.current.txt"
+                click.secho('Jammy.\n: {}'.format(url), fg='green')
+            elif ubuntu_version == "20.04":
                 url = "https://cloud-images.ubuntu.com/query/focal/server/released.current.txt"
                 click.secho('Focal.\n: {}'.format(url), fg='green')
             elif ubuntu_version == "18.04":
@@ -81,7 +85,7 @@ def retrieve_latest_base_ami(environment, deployment, play, override, ubuntu_ver
                 click.secho('Bionic.\n: {}'.format(url), fg='green')
             if url == "":
                 url = "https://cloud-images.ubuntu.com/query/focal/server/released.current.txt"
-                click.secho('Using default focal images.\n: {}'.format(url), fg='red')
+                click.secho('Defaulting to focal images.\n: {}'.format(url), fg='red')
             data = get_with_retry(url)
             parse_ami = re.findall('ebs-ssd(.+?)amd64(.+?){}(.+?)hvm'.format(region), data.content.decode('utf-8'))
             ami_id = parse_ami[0][2].strip()
