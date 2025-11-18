@@ -8,6 +8,8 @@ import logging
 import time
 import copy
 from collections import defaultdict
+import re
+
 import backoff
 import requests
 import six
@@ -51,6 +53,9 @@ CLUSTER_INFO_URL = "{}/cluster/show/{}.json".format(ASGARD_API_ENDPOINT, "{}")
 LOG = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = int(os.environ.get('RETRY_MAX_ATTEMPTS', 5))
+
+# This is a list of ASGs we would like to allow to be empty.
+ALLOW_EMPTY = [r"^stage-edx-WorkerServerASGroup.*"]
 
 
 def _handle_throttling(json_response):
@@ -217,7 +222,8 @@ def new_asg(cluster, ami_id):
     """
     Create a new ASG in the given asgard cluster using the given AMI.
 
-    Ensures that the new ASG has a min or desired instance count greater than 0.
+    Ensures that the new ASG has a min or desired instance count greater than 0
+    unless the new ASG matches a regex in ALLOW_EMPTY.
 
     Arguments:
         cluster(str): Name of the cluster.
@@ -229,7 +235,7 @@ def new_asg(cluster, ami_id):
     Raises:
         TimeoutException: When the task to bring up the new ASG times out.
         BackendError: When the task to bring up the new ASG fails.
-        ASGCountZeroException: When the new ASG brought online has 0 for it's min and desired counts
+        ASGCountZeroException: When the new ASG brought online has 0 for it's min and desired counts unless excluded.
         RateLimitedException: When we are being rate limited by AWS.
     """
 
@@ -270,10 +276,12 @@ def new_asg(cluster, ami_id):
     if _asg_is_empty(newest_asg):
         # ISRE-618 - Cleanup empty ASGs, throw error to backoff, and start again.
         _iterate_and_delete_empty_asgs(asgs)
-        raise ASGCountZeroException(
-            "New ASG {asg_name} was created with 0 instances, cleaning up empty ASGs and raising error."
-                .format(asg_name=newest_asg['autoScalingGroupName'])
-        )
+        # For any ASGs where the name matches the regexes listed in ALLOW_EMPTY, don't raise an exception.
+        if not any([re.search(exclude_regex, newest_asg["autoScalingGroupName"]) for exclude_regex in ALLOW_EMPTY]):
+            raise ASGCountZeroException(
+                "New ASG {asg_name} was created with 0 instances, cleaning up empty ASGs and raising error."
+                    .format(asg_name=newest_asg['autoScalingGroupName'])
+            )
 
     return newest_asg['autoScalingGroupName']
 
