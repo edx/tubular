@@ -11,6 +11,7 @@ edx-rest-api-client
 freezegun
 GitPython
 google-api-python-client
+oauth2client     # Required for googleapiclient discovery cache
 jenkinsapi
 jinja2
 kubernetes
