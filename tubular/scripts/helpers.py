@@ -33,6 +33,7 @@ from tubular.braze_api import BrazeApi  # pylint: disable=wrong-import-position
 from tubular.hubspot_api import HubspotAPI  # pylint: disable=wrong-import-position
 from tubular.red_ventures_api import RedVenturesApi  # pylint: disable=wrong-import-position
 from tubular.salesforce_api import SalesforceApi  # pylint: disable=wrong-import-position
+from tubular.salesforce_marketing_cloud_api import SalesforceMarketingCloudApi  # pylint: disable=wrong-import-position
 from tubular.segment_api import SegmentApi  # pylint: disable=wrong-import-position
 
 
@@ -182,6 +183,10 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
         red_ventures_audience = config.get('red_ventures_audience', None)
         red_ventures_auth_url = config.get('red_ventures_auth_url', None)
         red_ventures_deletion_url = config.get('red_ventures_deletion_url', None)
+        salesforce_marketing_cloud_client_id = config.get('salesforce_marketing_cloud_client_id', None)
+        salesforce_marketing_cloud_secret = config.get('salesforce_marketing_cloud_secret', None)
+        salesforce_marketing_cloud_subdomain = config.get('salesforce_marketing_cloud_subdomain', None)
+        salesforce_marketing_cloud_account_id = config.get('salesforce_marketing_cloud_account_id', None)
 
         for state in config['retirement_pipeline']:
             for service, service_url in (
@@ -193,6 +198,7 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
                     ('HUBSPOT', hubspot_api_key),
                     ('COMMERCE_COORDINATOR', commerce_coordinator_base_url),
                     ('RED_VENTURES', red_ventures_auth_url),
+                    ('SALESFORCE_MARKETING_CLOUD', salesforce_marketing_cloud_client_id),
             ):
                 if state[2] == service and service_url is None:
                     fail_func(fail_code, 'Service URL is not configured, but required for state {}'.format(state))
@@ -264,6 +270,14 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
                 red_ventures_deletion_url,
                 red_ventures_username,
                 red_ventures_password,
+            )
+
+        if salesforce_marketing_cloud_client_id:
+            config['SALESFORCE_MARKETING_CLOUD'] = SalesforceMarketingCloudApi(
+                salesforce_marketing_cloud_client_id,
+                salesforce_marketing_cloud_secret,
+                salesforce_marketing_cloud_subdomain,
+                salesforce_marketing_cloud_account_id,
             )
     except Exception as exc:  # pylint: disable=broad-except
         fail_func(fail_code, 'Unexpected error occurred!', exc)
