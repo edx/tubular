@@ -55,7 +55,6 @@ class SalesforceMarketingCloudApi:
         self.account_id = account_id
         self.token_host = f"{subdomain}.auth.marketingcloudapis.com"
         self.suppression_host = f"{subdomain}.rest.marketingcloudapis.com"
-        self._access_token = None
 
     @backoff.on_exception(
         backoff.expo,
@@ -94,7 +93,6 @@ class SalesforceMarketingCloudApi:
                 f"{response.reason}"
             )
 
-            # Retry on rate limiting or server errors
             if response.status_code == 429 or 500 <= response.status_code < 600:
                 logger.warning(error_msg)
                 raise SalesforceMarketingCloudRecoverableException(error_msg)
@@ -127,7 +125,6 @@ class SalesforceMarketingCloudApi:
             SalesforceMarketingCloudException: if the error from SFMC is unrecoverable/unretryable.
             SalesforceMarketingCloudRecoverableException: if the error from SFMC is recoverable/retryable.
         """
-        # Extract user ID from the learner dict
         user_id = None
         if isinstance(user, dict):
             user_data = user.get("user", {})
@@ -141,13 +138,10 @@ class SalesforceMarketingCloudApi:
                 "Expected a user ID for user to delete, but received None."
             )
 
-        # Convert user_id to string for the API
         subscriber_key = str(user_id)
 
-        # Get access token
         access_token = self._get_access_token()
 
-        # Prepare deletion request
         suppression_route = "hub/v1/dataevents/key:Contacts_for_Delete/rowset"
         suppress_url = f"https://{self.suppression_host}/{suppression_route}"
         suppress_headers = {
@@ -157,8 +151,8 @@ class SalesforceMarketingCloudApi:
 
         suppress_data = [
             {
-                "keys": {"Subscriberkey": subscriber_key},
-                "values": {"IsDelete": "True"},
+                "keys": {"SubscriberKey": subscriber_key},
+                "values": {"IsDelete": True},
             }
         ]
 
@@ -176,7 +170,6 @@ class SalesforceMarketingCloudApi:
                 )
                 return
 
-            # Parse error response
             error_msg = (
                 f"SFMC user deletion failed with status {response.status_code}: "
                 f"{response.reason}"
@@ -187,10 +180,8 @@ class SalesforceMarketingCloudApi:
                 if error_details:
                     error_msg += f" - Details: {error_details}"
             except ValueError:
-                # Response is not JSON
                 pass
 
-            # Retry on rate limiting or server errors
             if response.status_code == 429 or 500 <= response.status_code < 600:
                 logger.warning(error_msg)
                 raise SalesforceMarketingCloudRecoverableException(error_msg)
