@@ -3,10 +3,9 @@ Tests for the Salesforce Marketing Cloud API functionality
 """
 
 import ddt
-import os
 import logging
-import unittest
-from unittest import mock
+import os
+from unittest import TestCase, mock
 
 import requests_mock
 
@@ -20,7 +19,7 @@ from tubular.salesforce_marketing_cloud_api import (
 
 @ddt.ddt
 @requests_mock.Mocker()
-class TestSalesforceMarketingCloud(unittest.TestCase):
+class TestSalesforceMarketingCloud(TestCase):
     """
     Class containing tests of all code interacting with Salesforce Marketing Cloud.
     """
@@ -31,8 +30,7 @@ class TestSalesforceMarketingCloud(unittest.TestCase):
         self.sfmc = SalesforceMarketingCloudApi(
             'test-client-id',
             'test-client-secret',
-            'test-subdomain',
-            'test-account-id'
+            'test-subdomain'
         )
         self.token_url = 'https://test-subdomain.auth.marketingcloudapis.com/v2/token'
         self.delete_url = 'https://test-subdomain.rest.marketingcloudapis.com/hub/v1/dataevents/key:Contacts_for_Delete/rowset'
@@ -85,13 +83,8 @@ class TestSalesforceMarketingCloud(unittest.TestCase):
     def test_delete_user_missing_user_id(self, req_mock):
         learner = {'user': {}}
         
-        with self.assertRaises(TypeError) as exc:
+        with self.assertRaises(KeyError):
             self.sfmc.delete_user(learner)
-        
-        self.assertEqual(
-            str(exc.exception),
-            'Expected a user ID for user to delete, but received None.'
-        )
 
     def test_delete_fatal_error(self, req_mock):
         self._mock_token_request(req_mock)
@@ -115,4 +108,25 @@ class TestSalesforceMarketingCloud(unittest.TestCase):
         with self.assertRaises(SalesforceMarketingCloudRecoverableException):
             self.sfmc.delete_user(self.learner)
 
+        self.assertGreaterEqual(len(req_mock.request_history), 2)
+
+    def test_token_fatal_error(self, req_mock):
+        self._mock_token_request(req_mock, status_code=401)
+
+        logger = logging.getLogger('tubular.salesforce_marketing_cloud_api')
+        with mock.patch.object(logger, 'error') as mock_error:
+            with self.assertRaises(SalesforceMarketingCloudException):
+                self.sfmc.delete_user(self.learner)
+
+        self.assertTrue(mock_error.called)
+        self.assertIn('SFMC token request failed', str(mock_error.call_args))
+
+    @ddt.data(429, 500)
+    def test_token_recoverable_error(self, status_code, req_mock):
+        self._mock_token_request(req_mock, status_code=status_code)
+
+        with self.assertRaises(SalesforceMarketingCloudRecoverableException):
+            self.sfmc.delete_user(self.learner)
+
+        # Should have retried with backoff
         self.assertGreaterEqual(len(req_mock.request_history), 2)

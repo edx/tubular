@@ -186,7 +186,6 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
         salesforce_marketing_cloud_client_id = config.get('salesforce_marketing_cloud_client_id', None)
         salesforce_marketing_cloud_secret = config.get('salesforce_marketing_cloud_secret', None)
         salesforce_marketing_cloud_subdomain = config.get('salesforce_marketing_cloud_subdomain', None)
-        salesforce_marketing_cloud_account_id = config.get('salesforce_marketing_cloud_account_id', None)
 
         for state in config['retirement_pipeline']:
             for service, service_url in (
@@ -277,7 +276,6 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
                 salesforce_marketing_cloud_client_id,
                 salesforce_marketing_cloud_secret,
                 salesforce_marketing_cloud_subdomain,
-                salesforce_marketing_cloud_account_id,
             )
     except Exception as exc:  # pylint: disable=broad-except
         fail_func(fail_code, 'Unexpected error occurred!', exc)

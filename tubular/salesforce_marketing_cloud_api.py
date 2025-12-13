@@ -1,5 +1,5 @@
 """
-Salesforce Marketing Cloud API class that is used to delete user from SFMC.
+Salesforce Marketing Cloud API class that is used to delete a user from SFMC.
 """
 
 import logging
@@ -14,7 +14,7 @@ MAX_ATTEMPTS = int(os.environ.get("RETRY_SFMC_MAX_ATTEMPTS", 5))
 
 class SalesforceMarketingCloudException(Exception):
     """
-    SalesforceMarketingCloudException will be raised when there is a fatal error and is not recoverable.
+    SalesforceMarketingCloudException will be raised when a fatal, non-recoverable error occurs.
     """
 
     pass
@@ -22,7 +22,7 @@ class SalesforceMarketingCloudException(Exception):
 
 class SalesforceMarketingCloudRecoverableException(SalesforceMarketingCloudException):
     """
-    SalesforceMarketingCloudRecoverableException will be raised when request can be retryable.
+    SalesforceMarketingCloudRecoverableException will be raised when the request can be retried.
     """
 
     pass
@@ -38,7 +38,6 @@ class SalesforceMarketingCloudApi:
         client_id: str,
         client_secret: str,
         subdomain: str,
-        account_id: str,
     ):
         """
         Initialize the SFMC API client.
@@ -47,12 +46,10 @@ class SalesforceMarketingCloudApi:
             client_id: SFMC OAuth client ID
             client_secret: SFMC OAuth client secret
             subdomain: SFMC subdomain (e.g., 'mc123456789')
-            account_id: SFMC account/MID identifier
         """
         self.client_id = client_id
         self.client_secret = client_secret
         self.subdomain = subdomain
-        self.account_id = account_id
         self.token_host = f"{subdomain}.auth.marketingcloudapis.com"
         self.suppression_host = f"{subdomain}.rest.marketingcloudapis.com"
 
@@ -125,19 +122,8 @@ class SalesforceMarketingCloudApi:
             SalesforceMarketingCloudException: if the error from SFMC is unrecoverable/unretryable.
             SalesforceMarketingCloudRecoverableException: if the error from SFMC is recoverable/retryable.
         """
-        user_id = None
-        if isinstance(user, dict):
-            user_data = user.get("user", {})
-            if isinstance(user_data, dict):
-                user_id = user_data.get("id")
-            else:
-                user_id = user_data
-
-        if not user_id:
-            raise TypeError(
-                "Expected a user ID for user to delete, but received None."
-            )
-
+        # Extract user ID - expects format: {'user': {'id': 1234}}
+        user_id = user['user']['id']
         subscriber_key = str(user_id)
 
         access_token = self._get_access_token()
