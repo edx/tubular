@@ -20,6 +20,7 @@ from tubular.scripts.retirement_partner_report import (
     ERR_BAD_SECRETS,
     ERR_CLEANUP,
     ERR_FETCHING_LEARNERS,
+    ERR_MISSING_POC,
     ERR_NO_CONFIG,
     ERR_NO_SECRETS,
     ERR_NO_OUTPUT_DIR,
@@ -67,7 +68,7 @@ DEFAULT_FIELD_VALUES = {
 }
 
 
-def _call_script(expect_success=True, expected_num_rows=10, config_orgs=None, expected_fields=None):
+def _call_script(expect_success=True, expected_num_rows=10, config_orgs=None, expected_fields=None, exempted_partners=None):
     """
     Call the retired learner script with the given username and a generic, temporary config file.
     Returns the CliRunner.invoke results
@@ -80,7 +81,7 @@ def _call_script(expect_success=True, expected_num_rows=10, config_orgs=None, ex
     runner = CliRunner()
     with runner.isolated_filesystem():
         with open(TEST_CONFIG_YML_NAME, 'w') as config_f:
-            fake_config_file(config_f, config_orgs)
+            fake_config_file(config_f, config_orgs, exempted_partners=exempted_partners)
         with open(TEST_GOOGLE_SECRETS_FILENAME, 'w') as secrets_f:
             fake_google_secrets_file(secrets_f)
 
@@ -234,21 +235,14 @@ def test_successful_report(*args, **kwargs):
     mock_create_comments.return_value = None
     fake_partners = list(itervalues(FAKE_ORGS))
     # Generate the list_permissions return value.
-    # The first few have POCs.
+    # All partners have POCs for this successful test case.
     mock_list_permissions.return_value = {
         'folder' + partner: [
             {'emailAddress': 'some.contact@example.com'},  # The POC.
             {'emailAddress': 'another.contact@edx.org'},
         ]
-        for partner in flatten_partner_list(fake_partners[:2])
+        for partner in flatten_partner_list(fake_partners)
     }
-    # The last one does not have any POCs.
-    mock_list_permissions.return_value.update({
-        'folder' + partner: [
-            {'emailAddress': 'another.contact@edx.org'},
-        ]
-        for partner in fake_partners[2]
-    })
     mock_walk_files.return_value = [{'name': partner, 'id': 'folder' + partner} for partner in flatten_partner_list(FAKE_ORGS.values())]
     mock_create_files.side_effect = ['foo', 'bar', 'baz', 'qux']
     mock_driveapi.return_value = None
@@ -270,10 +264,9 @@ def test_successful_report(*args, **kwargs):
     # First [0] returns all positional args, second [0] gets the first positional arg.
     create_comments_file_ids, create_comments_messages = zip(*mock_create_comments.call_args[0][0])
     assert set(create_comments_file_ids).issubset(set(['foo', 'bar', 'baz', 'qux']))
-    assert len(create_comments_file_ids) == 2  # only two comments created, the third didn't have a POC.
+    assert len(create_comments_file_ids) == 4  # All four partners have POCs now
     assert all('+some.contact@example.com' in msg for msg in create_comments_messages)
     assert all('+another.contact@edx.org' not in msg for msg in create_comments_messages)
-    assert 'WARNING: could not find a POC' in result.output
 
     # Make sure we tried to remove the users from the queue
     mock_retirement_cleanup.assert_called_with(
@@ -281,6 +274,122 @@ def test_successful_report(*args, **kwargs):
     )
 
     assert 'All reports completed and uploaded to Google.' in result.output
+
+
+@patch('tubular.google_api.DriveApi.__init__')
+@patch('tubular.google_api.DriveApi.create_file_in_folder')
+@patch('tubular.google_api.DriveApi.walk_files')
+@patch('tubular.google_api.DriveApi.list_permissions_for_files')
+@patch('tubular.edx_api.BaseApiClient.get_access_token')
+@patch.multiple(
+    'tubular.edx_api.LmsApi',
+    retirement_partner_report=DEFAULT,
+    retirement_partner_cleanup=DEFAULT
+)
+def test_missing_poc_failure(*args, **kwargs):
+    """
+    Test that missing POC causes compliance failure
+    """
+    mock_get_access_token = args[0]
+    mock_list_permissions = args[1]
+    mock_walk_files = args[2]
+    mock_create_files = args[3]
+    mock_driveapi = args[4]
+    mock_retirement_report = kwargs['retirement_partner_report']
+
+    mock_get_access_token.return_value = ('THIS_IS_A_JWT', None)
+    fake_partners = list(itervalues(FAKE_ORGS))
+    
+    # Some partners have POCs, but the last one does not
+    mock_list_permissions.return_value = {
+        'folder' + partner: [
+            {'emailAddress': 'some.contact@example.com'},  # The POC.
+            {'emailAddress': 'another.contact@edx.org'},
+        ]
+        for partner in flatten_partner_list(fake_partners[:2])
+    }
+    # The last partner has no external POCs (only edx.org addresses)
+    mock_list_permissions.return_value.update({
+        'folder' + partner: [
+            {'emailAddress': 'another.contact@edx.org'},  # This gets filtered out
+        ]
+        for partner in fake_partners[2]
+    })
+    
+    mock_walk_files.return_value = [{'name': partner, 'id': 'folder' + partner} for partner in
+                                    flatten_partner_list(FAKE_ORGS.values())]
+    mock_create_files.side_effect = ['foo', 'bar', 'baz', 'qux']
+    mock_driveapi.return_value = None
+    mock_retirement_report.return_value = _fake_retirement_report(user_orgs=list(FAKE_ORGS.keys()))
+
+    # Expect failure due to missing POC
+    result = _call_script(expect_success=False)
+    
+    assert result.exit_code == ERR_MISSING_POC
+    assert 'COMPLIANCE FAILURE' in result.output
+    assert 'Point of Contact' in result.output
+    assert 'Project Coordinators must be informed' in result.output
+
+
+@patch('tubular.google_api.DriveApi.__init__')
+@patch('tubular.google_api.DriveApi.create_file_in_folder')
+@patch('tubular.google_api.DriveApi.walk_files')
+@patch('tubular.google_api.DriveApi.list_permissions_for_files')
+@patch('tubular.google_api.DriveApi.create_comments_for_files')
+@patch('tubular.edx_api.BaseApiClient.get_access_token')
+@patch.multiple(
+    'tubular.edx_api.LmsApi',
+    retirement_partner_report=DEFAULT,
+    retirement_partner_cleanup=DEFAULT
+)
+def test_missing_poc_with_exemption(*args, **kwargs):
+    """
+    Test that partners configured as exempt from POC requirements don't cause failure
+    """
+    mock_get_access_token = args[0]
+    mock_create_comments = args[1]
+    mock_list_permissions = args[2]
+    mock_walk_files = args[3]
+    mock_create_files = args[4]
+    mock_driveapi = args[5]
+    mock_retirement_report = kwargs['retirement_partner_report']
+    mock_retirement_cleanup = kwargs['retirement_partner_cleanup']
+
+    mock_get_access_token.return_value = ('THIS_IS_A_JWT', None)
+    mock_create_comments.return_value = None
+    fake_partners = list(itervalues(FAKE_ORGS))
+    
+    # Some partners have POCs, but the last one does not
+    mock_list_permissions.return_value = {
+        'folder' + partner: [
+            {'emailAddress': 'some.contact@example.com'},  # The POC.
+            {'emailAddress': 'another.contact@edx.org'},
+        ]
+        for partner in flatten_partner_list(fake_partners[:2])
+    }
+    # The last partner has no external POCs (only edx.org addresses)
+    mock_list_permissions.return_value.update({
+        'folder' + partner: [
+            {'emailAddress': 'another.contact@edx.org'},  # This gets filtered out
+        ]
+        for partner in fake_partners[2]
+    })
+    
+    mock_walk_files.return_value = [{'name': partner, 'id': 'folder' + partner} for partner in
+                                    flatten_partner_list(FAKE_ORGS.values())]
+    mock_create_files.side_effect = ['foo', 'bar', 'baz', 'qux']
+    mock_driveapi.return_value = None
+    mock_retirement_report.return_value = _fake_retirement_report(user_orgs=list(FAKE_ORGS.keys()))
+
+    # Create config with exempt partners (using partners from FAKE_ORGS that have no POC)
+    exempt_partners = fake_partners[2]  # Get partners from the third org that have no POC
+    
+    result = _call_script(expect_success=True, exempted_partners=exempt_partners)
+    
+    # Should succeed since the partners without POC are in the exemption list
+    assert result.exit_code == 0
+    assert 'All reports completed and uploaded to Google.' in result.output
+    assert 'is configured to not require a POC' in result.output
 
 
 @patch('tubular.google_api.DriveApi.__init__')

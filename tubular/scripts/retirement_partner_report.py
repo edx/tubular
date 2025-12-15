@@ -43,6 +43,7 @@ ERR_REPORTING = -9
 ERR_DRIVE_UPLOAD = -10
 ERR_CLEANUP = -11
 ERR_DRIVE_LISTING = -12
+ERR_MISSING_POC = -13
 
 SCRIPT_SHORTNAME = 'Partner report'
 LOG = partial(_log, SCRIPT_SHORTNAME)
@@ -316,17 +317,37 @@ def _add_comments_to_files(config, file_ids):
     }
 
     file_ids_and_comments = []
+    missing_poc_partners = []
+    
     for partner in file_ids:
         if not external_emails[partner]:
-            LOG(
-                'WARNING: could not find a POC for the following partner: "{}". '
-                'Double check the partner folder permissions in Google Drive.'
+            # Check if this partner is exempt from POC requirements
+            if partner in config.get('partners_without_poc_required', []):
+                LOG(
+                    'INFO: Partner "{}" is configured to not require a POC - skipping notification.'
                     .format(partner)
-            )
+                )
+            else:
+                # This is a compliance issue - missing POC prevents proper notification
+                missing_poc_partners.append(partner)
+                LOG(
+                    'ERROR: Could not find a Point of Contact (POC) for partner: "{}". '
+                    'This is a COMPLIANCE ISSUE - partners must have a POC to be notified '
+                    'when learners are retired. Double check the partner folder permissions in Google Drive.'
+                    .format(partner)
+                )
         else:
             tag_string = ' '.join('+' + email for email in external_emails[partner])
             comment_content = NOTIFICATION_MESSAGE_TEMPLATE.format(tags=tag_string)
             file_ids_and_comments.append((file_ids[partner], comment_content))
+    
+    # Fail if any partners are missing POC (and not exempt)
+    if missing_poc_partners:
+        FAIL(ERR_MISSING_POC, 
+             'COMPLIANCE FAILURE: The following {} partner(s) do not have a Point of Contact configured: {}. '
+             'Partners must have a POC to fulfill compliance requirements for learner retirement notifications. '
+             'Project Coordinators must be informed to resolve this immediately.'
+             .format(len(missing_poc_partners), ', '.join('"{}"'.format(p) for p in missing_poc_partners)))
 
     try:
         LOG('Adding notification comments to uploaded csv files.')

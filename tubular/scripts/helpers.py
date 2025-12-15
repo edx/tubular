@@ -117,6 +117,16 @@ def _config_with_drive_or_exit(fail_func, config_fail_code, google_fail_code, co
         for org in config['org_partner_mapping']:
             partner = config['org_partner_mapping'][org]
             config['org_partner_mapping'][org] = [unicodedata.normalize('NFKC', text_type(partner)) for partner in config['org_partner_mapping'][org]]
+
+        # Set up partners that are exempt from POC requirements (optional configuration)
+        if 'partners_without_poc_required' not in config:
+            config['partners_without_poc_required'] = []
+        else:
+            # Normalize the exempt partner names the same way
+            config['partners_without_poc_required'] = [
+                unicodedata.normalize('NFKC', text_type(partner)) 
+                for partner in config['partners_without_poc_required']
+            ]
     except Exception as exc:  # pylint: disable=broad-except
         fail_func(config_fail_code, 'Failed to read config file {}'.format(config_file), exc)
 
