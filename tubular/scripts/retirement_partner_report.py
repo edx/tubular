@@ -332,8 +332,7 @@ def _add_comments_to_files(config, file_ids):
                 missing_poc_partners.append(partner)
                 LOG(
                     'ERROR: Could not find a Point of Contact (POC) for partner: "{}". '
-                    'This is a COMPLIANCE ISSUE - partners must have a POC to be notified '
-                    'when learners are retired. Double check the partner folder permissions in Google Drive.'
+                    'Double check the partner folder permissions in Google Drive.'
                     .format(partner)
                 )
         else:
@@ -341,12 +340,10 @@ def _add_comments_to_files(config, file_ids):
             comment_content = NOTIFICATION_MESSAGE_TEMPLATE.format(tags=tag_string)
             file_ids_and_comments.append((file_ids[partner], comment_content))
     
-    # Fail if any partners are missing POC (and not exempt)
+    # Fail if any partners are missing POC and not exempt.
     if missing_poc_partners:
         FAIL(ERR_MISSING_POC, 
-             'COMPLIANCE FAILURE: The following {} partner(s) do not have a Point of Contact configured: {}. '
-             'Partners must have a POC to fulfill compliance requirements for learner retirement notifications. '
-             'Project Coordinators must be informed to resolve this immediately.'
+             'COMPLIANCE FAILURE: {} partner(s) missing POC: {}. Project Coordinators must be informed.'
              .format(len(missing_poc_partners), ', '.join('"{}"'.format(p) for p in missing_poc_partners)))
 
     try:

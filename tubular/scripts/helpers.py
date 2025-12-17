@@ -118,7 +118,7 @@ def _config_with_drive_or_exit(fail_func, config_fail_code, google_fail_code, co
             partner = config['org_partner_mapping'][org]
             config['org_partner_mapping'][org] = [unicodedata.normalize('NFKC', text_type(partner)) for partner in config['org_partner_mapping'][org]]
 
-        # Set up partners that are exempt from POC requirements (optional configuration)
+        # Set up partners that are exempt from POC requirements.
         if 'partners_without_poc_required' not in config:
             config['partners_without_poc_required'] = []
         else:
