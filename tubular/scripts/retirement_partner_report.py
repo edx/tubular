@@ -342,9 +342,10 @@ def _add_comments_to_files(config, file_ids):
     
     # Fail if any partners are missing POC and not exempt.
     if missing_poc_partners:
+        partner_word = 'partners' if len(missing_poc_partners) != 1 else 'partner'
         FAIL(ERR_MISSING_POC, 
-             'COMPLIANCE FAILURE: {} partner(s) missing POC: {}. Project Coordinators must be informed.'
-             .format(len(missing_poc_partners), ', '.join('"{}"'.format(p) for p in missing_poc_partners)))
+             'COMPLIANCE FAILURE: {} {} missing POC: {}. Project Coordinators must be informed.'
+             .format(len(missing_poc_partners), partner_word, ', '.join('"{}"'.format(p) for p in missing_poc_partners)))
 
     try:
         LOG('Adding notification comments to uploaded csv files.')

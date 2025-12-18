@@ -296,10 +296,11 @@ def test_missing_poc_failure(*args, **kwargs):
     mock_create_files = args[3]
     mock_driveapi = args[4]
     mock_retirement_report = kwargs['retirement_partner_report']
+    mock_retirement_cleanup = kwargs['retirement_partner_cleanup']
 
     mock_get_access_token.return_value = ('THIS_IS_A_JWT', None)
     fake_partners = list(itervalues(FAKE_ORGS))
-    
+
     # Some partners have POCs, but the last one does not
     mock_list_permissions.return_value = {
         'folder' + partner: [
@@ -315,7 +316,7 @@ def test_missing_poc_failure(*args, **kwargs):
         ]
         for partner in fake_partners[2]
     })
-    
+
     mock_walk_files.return_value = [{'name': partner, 'id': 'folder' + partner} for partner in
                                     flatten_partner_list(FAKE_ORGS.values())]
     mock_create_files.side_effect = ['foo', 'bar', 'baz', 'qux']
@@ -324,11 +325,15 @@ def test_missing_poc_failure(*args, **kwargs):
 
     # Expect failure due to missing POC
     result = _call_script(expect_success=False)
-    
+
     assert result.exit_code == ERR_MISSING_POC
     assert 'COMPLIANCE FAILURE' in result.output
-    assert 'Point of Contact' in result.output
+    assert 'Point of Contact' in result.output  # From CRITICAL log message
+    assert 'missing POC' in result.output  # From FAIL compliance message
     assert 'Project Coordinators must be informed' in result.output
+
+    # Ensure cleanup was NOT called since the job failed
+    mock_retirement_cleanup.assert_not_called()
 
 
 @patch('tubular.google_api.DriveApi.__init__')
@@ -358,7 +363,7 @@ def test_missing_poc_with_exemption(*args, **kwargs):
     mock_get_access_token.return_value = ('THIS_IS_A_JWT', None)
     mock_create_comments.return_value = None
     fake_partners = list(itervalues(FAKE_ORGS))
-    
+
     # Some partners have POCs, but the last one does not
     mock_list_permissions.return_value = {
         'folder' + partner: [
@@ -374,7 +379,7 @@ def test_missing_poc_with_exemption(*args, **kwargs):
         ]
         for partner in fake_partners[2]
     })
-    
+
     mock_walk_files.return_value = [{'name': partner, 'id': 'folder' + partner} for partner in
                                     flatten_partner_list(FAKE_ORGS.values())]
     mock_create_files.side_effect = ['foo', 'bar', 'baz', 'qux']
@@ -383,13 +388,26 @@ def test_missing_poc_with_exemption(*args, **kwargs):
 
     # Create config with exempt partners (using partners from FAKE_ORGS that have no POC)
     exempt_partners = fake_partners[2]  # Get partners from the third org that have no POC
-    
+
     result = _call_script(expect_success=True, exempted_partners=exempt_partners)
-    
+
     # Should succeed since the partners without POC are in the exemption list
     assert result.exit_code == 0
     assert 'All reports completed and uploaded to Google.' in result.output
     assert 'is configured to not require a POC' in result.output
+
+    # Verify that comments are still created for non-exempt partners with POCs
+    assert mock_create_comments.call_count == 1
+    create_comments_file_ids, create_comments_messages = zip(*mock_create_comments.call_args[0][0])
+    # Should have comments for the first 2 orgs (that have POCs), but not the exempt 3rd org
+    expected_partners_with_poc = flatten_partner_list(fake_partners[:2])  # First 2 orgs have POCs
+    assert len(create_comments_file_ids) == len(expected_partners_with_poc)
+    assert all('+some.contact@example.com' in msg for msg in create_comments_messages)
+
+    # Make sure we tried to remove the users from the queue
+    mock_retirement_cleanup.assert_called_with(
+        [{'original_username': user[LEARNER_ORIGINAL_USERNAME_KEY]} for user in mock_retirement_report.return_value]
+    )
 
 
 @patch('tubular.google_api.DriveApi.__init__')
