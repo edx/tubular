@@ -329,11 +329,24 @@ class DriveApi(BaseApiClient):
         LOG.info("Files walked. {} files found before filtering.".format(len(all_files)))
         file_ids_to_delete = []
         for file in all_files:
-            if (not prefix or file['name'].startswith(prefix)) and parse(file['createdTime']) < delete_before_dt:
+            file_created = parse(file['createdTime'])
+            LOG.info("Checking file '{}' created at {}. Prefix check: {}, Date check: {} < {}".format(
+                file.get('name', 'unknown'),
+                file_created,
+                "passed" if (not prefix or file['name'].startswith(prefix)) else "FAILED (prefix='{}')".format(prefix),
+                file_created,
+                delete_before_dt
+            ))
+            if (not prefix or file['name'].startswith(prefix)) and file_created < delete_before_dt:
                 file_ids_to_delete.append(file['id'])
+                LOG.info("File '{}' marked for deletion.".format(file.get('name', 'unknown')))
         if file_ids_to_delete:
             LOG.info("{} files remaining after filtering.".format(len(file_ids_to_delete)))
             self.delete_files(file_ids_to_delete)
+        else:
+            LOG.info("No files matched the deletion criteria (prefix='{}', delete_before={}).".format(
+                prefix, delete_before_dt
+            ))
 
     @backoff.on_exception(
         backoff.expo,
