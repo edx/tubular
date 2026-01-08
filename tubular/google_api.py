@@ -322,24 +322,58 @@ class DriveApi(BaseApiClient):
             mimetype (str): Mimetype of files to delete. If not specified, all non-folders will be found.
             prefix (str): Filename prefix - only files started with this prefix will be deleted.
         """
+        LOG.info("Starting deletion process with criteria - mimetype: {}, prefix: {}, delete_before: {}".format(
+            mimetype or 'any', prefix or 'any', delete_before_dt
+        ))
         LOG.info("Walking files...")
         all_files = self.walk_files(
             top_level, 'id, name, createdTime', mimetype
         )
-        LOG.info("Files walked. {} files found before filtering.".format(len(all_files)))
+        LOG.info("Files walked. {} files found (already filtered by mimetype: {}).".format(
+            len(all_files), mimetype or 'any'
+        ))
         file_ids_to_delete = []
+        skipped_files_count = 0
+        
         for file in all_files:
             file_created = parse(file['createdTime'])
+            file_name = file.get('name', 'unknown')
+            
+            # Check prefix requirement
+            prefix_check_passed = not prefix or file_name.startswith(prefix)
+            # Check date requirement
+            date_check_passed = file_created < delete_before_dt
+            
             LOG.info("Checking file '{}' created at {}. Prefix check: {}, Date check: {} < {}".format(
-                file.get('name', 'unknown'),
+                file_name,
                 file_created,
-                "passed" if (not prefix or file['name'].startswith(prefix)) else "FAILED (prefix='{}')".format(prefix),
+                "passed" if prefix_check_passed else "FAILED (prefix='{}')".format(prefix),
                 file_created,
                 delete_before_dt
             ))
-            if (not prefix or file['name'].startswith(prefix)) and file_created < delete_before_dt:
+            
+            if prefix_check_passed and date_check_passed:
                 file_ids_to_delete.append(file['id'])
-                LOG.info("File '{}' marked for deletion.".format(file.get('name', 'unknown')))
+                LOG.info("✓ File '{}' marked for deletion.".format(file_name))
+            else:
+                skipped_files_count += 1
+                reasons = []
+                if not prefix_check_passed:
+                    reasons.append("Prefix did not match (expected '{}', file starts with '{}')".format(
+                        prefix, file_name[:len(prefix)] if len(file_name) >= len(prefix or '') else file_name
+                    ))
+                if not date_check_passed:
+                    reasons.append("Date check failed - file too recent (created {}, cutoff {})".format(
+                        file_created.strftime('%Y-%m-%d'), delete_before_dt.strftime('%Y-%m-%d')
+                    ))
+                LOG.info("Not considered for deletion - Reason: {}. File: '{}'".format(
+                    "; ".join(reasons), file_name
+                ))
+        
+        LOG.info("Summary: {} files scanned, {} marked for deletion, {} skipped".format(
+            len(all_files), len(file_ids_to_delete), skipped_files_count
+        ))
+        
         if file_ids_to_delete:
             LOG.info("{} files remaining after filtering.".format(len(file_ids_to_delete)))
             self.delete_files(file_ids_to_delete)
@@ -387,11 +421,10 @@ class DriveApi(BaseApiClient):
         found_ids = []
         # List of folder IDs remaining to be listed.
         folders_to_visit = [top_folder_id]
-        # Mimetype part of file-listing query.
-        mimetype_clause = ""
-        if mimetype:
-            # Return both folders and the specified mimetype.
-            mimetype_clause = "( mimeType = '{}' or mimeType = '{}') and ".format(FOLDER_MIMETYPE, mimetype)
+        # Counter for files excluded by mimetype filter
+        excluded_by_mimetype = 0
+        # Mimetype part of file-listing query - fetch all files to enable logging of exclusions
+        mimetype_clause = "( mimeType != '{}') and ".format(FOLDER_MIMETYPE)
 
         while folders_to_visit:
             current_folder = folders_to_visit.pop()
@@ -420,10 +453,17 @@ class DriveApi(BaseApiClient):
                             # Add any undiscovered folders to the list of folders to check.
                             folders_to_visit.append(result['id'])
                     # Determine if this result is a file to return.
-                    if result['id'] not in found_ids and (not mimetype or result['mimeType'] == mimetype):
-                        found_ids.append(result['id'])
-                        # Return only the fields specified in file_fields.
-                        results.append({k.strip(): result.get(k.strip(), None) for k in file_fields.split(',')})
+                    elif result['id'] not in found_ids:
+                        # Check mimetype filter
+                        if mimetype and result['mimeType'] != mimetype:
+                            excluded_by_mimetype += 1
+                            LOG.info(u"Not considered for deletion - Reason: Not a {} file (actual type: {}). File: '{}'".format(
+                                mimetype, result['mimeType'], result.get('name', 'unknown')
+                            ).encode('utf-8'))
+                        else:
+                            found_ids.append(result['id'])
+                            # Return only the fields specified in file_fields.
+                            results.append({k.strip(): result.get(k.strip(), None) for k in file_fields.split(',')})
 
                 LOG.info("walk_files: %s files found and %s folders to check.", len(results), len(folders_to_visit))
 
@@ -433,6 +473,12 @@ class DriveApi(BaseApiClient):
                     extra_kwargs['pageToken'] = resp['nextPageToken']
                 else:
                     break
+        
+        if mimetype:
+            LOG.info("walk_files: Mimetype filter summary - {} files matched, {} files excluded".format(
+                len(results), excluded_by_mimetype
+            ))
+        
         return results
 
     # NOTE: Do not decorate this function with backoff since it already calls retryable methods.
