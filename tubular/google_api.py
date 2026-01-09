@@ -99,14 +99,7 @@ class BaseApiClient:
                 # Set the scopes
                 token_info['scopes'] = self._api_scopes
                 credentials = Credentials(**token_info)
-        self._client = build(
-            self._api_name,
-            self._api_version,
-            credentials=credentials,
-            cache_discovery=False,
-            static_discovery=False,
-            **kwargs
-        )
+        self._client = build(self._api_name, self._api_version, credentials=credentials, **kwargs)
         LOG.info("Client built.")
 
     def _batch_with_retry(self, requests):
