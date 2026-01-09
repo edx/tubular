@@ -91,8 +91,8 @@ def test_successful_report_deletion(*args):
 
     result = _call_script()
 
-    # Make sure the files were listed
-    assert mock_walk_files.call_count == 1
+    # Make sure the files were listed (twice: once for deletion, once for non-CSV reporting)
+    assert mock_walk_files.call_count == 2
 
     # Make sure we tried to delete the files
     assert mock_delete_files.call_count == 1
@@ -131,8 +131,8 @@ def test_deletion_report_no_matching_files(*args):
 
     result = _call_script()
 
-    # Make sure the files were listed
-    assert mock_walk_files.call_count == 1
+    # Make sure the files were listed (twice: once for deletion, once for non-CSV reporting)
+    assert mock_walk_files.call_count == 2
 
     # Make sure we did *not* try to delete the files - nothing to delete.
     assert mock_delete_files.call_count == 0

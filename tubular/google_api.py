@@ -322,24 +322,58 @@ class DriveApi(BaseApiClient):
             mimetype (str): Mimetype of files to delete. If not specified, all non-folders will be found.
             prefix (str): Filename prefix - only files started with this prefix will be deleted.
         """
+        LOG.info("Starting deletion process with criteria - mimetype: {}, prefix: {}, delete_before: {}".format(
+            mimetype or 'any', prefix or 'any', delete_before_dt
+        ))
         LOG.info("Walking files...")
         all_files = self.walk_files(
             top_level, 'id, name, createdTime', mimetype
         )
-        LOG.info("Files walked. {} files found before filtering.".format(len(all_files)))
+        LOG.info("Files walked. {} files found (already filtered by mimetype: {}).".format(
+            len(all_files), mimetype or 'any'
+        ))
         file_ids_to_delete = []
+        skipped_files_count = 0
+        
         for file in all_files:
             file_created = parse(file['createdTime'])
+            file_name = file.get('name', 'unknown')
+            
+            # Check prefix requirement
+            prefix_check_passed = not prefix or file_name.startswith(prefix)
+            # Check date requirement
+            date_check_passed = file_created < delete_before_dt
+            
             LOG.info("Checking file '{}' created at {}. Prefix check: {}, Date check: {} < {}".format(
-                file.get('name', 'unknown'),
+                file_name,
                 file_created,
-                "passed" if (not prefix or file['name'].startswith(prefix)) else "FAILED (prefix='{}')".format(prefix),
+                "passed" if prefix_check_passed else "FAILED (prefix='{}')".format(prefix),
                 file_created,
                 delete_before_dt
             ))
-            if (not prefix or file['name'].startswith(prefix)) and file_created < delete_before_dt:
+            
+            if prefix_check_passed and date_check_passed:
                 file_ids_to_delete.append(file['id'])
-                LOG.info("File '{}' marked for deletion.".format(file.get('name', 'unknown')))
+                LOG.info("✓ File '{}' marked for deletion.".format(file_name))
+            else:
+                skipped_files_count += 1
+                reasons = []
+                if not prefix_check_passed:
+                    reasons.append("Prefix did not match (expected '{}', file starts with '{}')".format(
+                        prefix, file_name[:len(prefix)] if len(file_name) >= len(prefix or '') else file_name
+                    ))
+                if not date_check_passed:
+                    reasons.append("Date check failed - file too recent (created {}, cutoff {})".format(
+                        file_created.strftime('%Y-%m-%d'), delete_before_dt.strftime('%Y-%m-%d')
+                    ))
+                LOG.info("Not considered for deletion - Reason: {}. File: '{}'".format(
+                    "; ".join(reasons), file_name
+                ))
+        
+        LOG.info("Summary: {} files scanned, {} marked for deletion, {} skipped".format(
+            len(all_files), len(file_ids_to_delete), skipped_files_count
+        ))
+        
         if file_ids_to_delete:
             LOG.info("{} files remaining after filtering.".format(len(file_ids_to_delete)))
             self.delete_files(file_ids_to_delete)
@@ -347,6 +381,48 @@ class DriveApi(BaseApiClient):
             LOG.info("No files matched the deletion criteria (prefix='{}', delete_before={}).".format(
                 prefix, delete_before_dt
             ))
+        
+        # Log files not matching the mimetype that were not considered for deletion
+        if mimetype:
+            LOG.info("Scanning for files not matching mimetype '{}'...".format(mimetype))
+            excluded_files = self.get_non_csv_files(top_level, mimetype)
+            LOG.info("Completed scanning. {} files found not matching mimetype '{}'.".format(len(excluded_files), mimetype))
+
+    def get_non_csv_files(self, top_folder_id, exclude_mimetype):
+        """
+        Get all files beneath a given top level folder that don't match the specified mimetype.
+        Traverses all subfolders recursively and logs each file found that doesn't match the mimetype.
+
+        Args:
+            top_folder_id (str): ID of top level folder to scan.
+            exclude_mimetype (str): Mimetype to exclude from results (e.g., 'text/csv').
+
+        Returns:
+            list: List of file objects (excluding folders and files matching the specified mimetype).
+        """
+        LOG.info("Walking all files to identify files not matching mimetype '{}'...".format(exclude_mimetype))
+        all_files = self.walk_files(
+            top_folder_id, 
+            file_fields='id, name, mimeType, createdTime',
+            mimetype=None,
+            recurse=True
+        )
+        
+        excluded_files = []
+        for file_obj in all_files:
+            file_mimetype = file_obj.get('mimeType', '')
+            file_name = file_obj.get('name', 'unknown')
+            
+            # Exclude folders and files matching the specified mimetype
+            if file_mimetype == FOLDER_MIMETYPE:
+                continue
+            elif file_mimetype != exclude_mimetype:
+                excluded_files.append(file_obj)
+                LOG.info(u"Not considered for deletion - Reason: Not a {} file (actual type: {}). File: '{}'".format(
+                    exclude_mimetype, file_mimetype, file_name
+                ).encode('utf-8'))
+        
+        return excluded_files
 
     @backoff.on_exception(
         backoff.expo,

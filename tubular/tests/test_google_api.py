@@ -241,6 +241,11 @@ ETag: "etag/sheep"\r\n\r\n
                 {'status': '200', 'content-type': 'application/json'},
                 json.dumps({'files': fake_files}, default=lambda x: x.isoformat()).encode('utf-8'),
             ),
+            # Then, get_non_csv_files makes another request to list all files.
+            (
+                {'status': '200', 'content-type': 'application/json'},
+                json.dumps({'files': fake_files}, default=lambda x: x.isoformat()).encode('utf-8'),
+            ),
         ])
         with patch.object(DriveApi, 'delete_files', return_value=None) as mock_delete_files:
             test_client = DriveApi('non-existent-secrets.json', http=http_mock_sequence)
