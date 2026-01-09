@@ -99,7 +99,14 @@ class BaseApiClient:
                 # Set the scopes
                 token_info['scopes'] = self._api_scopes
                 credentials = Credentials(**token_info)
-        self._client = build(self._api_name, self._api_version, credentials=credentials, **kwargs)
+        self._client = build(
+            self._api_name,
+            self._api_version,
+            credentials=credentials,
+            cache_discovery=False,
+            static_discovery=False,
+            **kwargs
+        )
         LOG.info("Client built.")
 
     def _batch_with_retry(self, requests):
@@ -381,6 +388,48 @@ class DriveApi(BaseApiClient):
             LOG.info("No files matched the deletion criteria (prefix='{}', delete_before={}).".format(
                 prefix, delete_before_dt
             ))
+        
+        # Log files not matching the mimetype that were not considered for deletion
+        if mimetype:
+            LOG.info("Scanning for files not matching mimetype '{}'...".format(mimetype))
+            excluded_files = self.get_non_csv_files(top_level, mimetype)
+            LOG.info("Completed scanning. {} files found not matching mimetype '{}'.".format(len(excluded_files), mimetype))
+
+    def get_non_csv_files(self, top_folder_id, exclude_mimetype):
+        """
+        Get all files beneath a given top level folder that don't match the specified mimetype.
+        Traverses all subfolders recursively and logs each file found that doesn't match the mimetype.
+
+        Args:
+            top_folder_id (str): ID of top level folder to scan.
+            exclude_mimetype (str): Mimetype to exclude from results (e.g., 'text/csv').
+
+        Returns:
+            list: List of file objects (excluding folders and files matching the specified mimetype).
+        """
+        LOG.info("Walking all files to identify files not matching mimetype '{}'...".format(exclude_mimetype))
+        all_files = self.walk_files(
+            top_folder_id, 
+            file_fields='id, name, mimeType, createdTime',
+            mimetype=None,
+            recurse=True
+        )
+        
+        excluded_files = []
+        for file_obj in all_files:
+            file_mimetype = file_obj.get('mimeType', '')
+            file_name = file_obj.get('name', 'unknown')
+            
+            # Exclude folders and files matching the specified mimetype
+            if file_mimetype == FOLDER_MIMETYPE:
+                continue
+            elif file_mimetype != exclude_mimetype:
+                excluded_files.append(file_obj)
+                LOG.info(u"Not considered for deletion - Reason: Not a {} file (actual type: {}). File: '{}'".format(
+                    exclude_mimetype, file_mimetype, file_name
+                ).encode('utf-8'))
+        
+        return excluded_files
 
     @backoff.on_exception(
         backoff.expo,
@@ -421,10 +470,11 @@ class DriveApi(BaseApiClient):
         found_ids = []
         # List of folder IDs remaining to be listed.
         folders_to_visit = [top_folder_id]
-        # Counter for files excluded by mimetype filter
-        excluded_by_mimetype = 0
-        # Mimetype part of file-listing query - fetch all files to enable logging of exclusions
-        mimetype_clause = "( mimeType != '{}') and ".format(FOLDER_MIMETYPE)
+        # Mimetype part of file-listing query.
+        mimetype_clause = ""
+        if mimetype:
+            # Return both folders and the specified mimetype.
+            mimetype_clause = "( mimeType = '{}' or mimeType = '{}') and ".format(FOLDER_MIMETYPE, mimetype)
 
         while folders_to_visit:
             current_folder = folders_to_visit.pop()
@@ -453,17 +503,10 @@ class DriveApi(BaseApiClient):
                             # Add any undiscovered folders to the list of folders to check.
                             folders_to_visit.append(result['id'])
                     # Determine if this result is a file to return.
-                    elif result['id'] not in found_ids:
-                        # Check mimetype filter
-                        if mimetype and result['mimeType'] != mimetype:
-                            excluded_by_mimetype += 1
-                            LOG.info(u"Not considered for deletion - Reason: Not a {} file (actual type: {}). File: '{}'".format(
-                                mimetype, result['mimeType'], result.get('name', 'unknown')
-                            ).encode('utf-8'))
-                        else:
-                            found_ids.append(result['id'])
-                            # Return only the fields specified in file_fields.
-                            results.append({k.strip(): result.get(k.strip(), None) for k in file_fields.split(',')})
+                    if result['id'] not in found_ids and (not mimetype or result['mimeType'] == mimetype):
+                        found_ids.append(result['id'])
+                        # Return only the fields specified in file_fields.
+                        results.append({k.strip(): result.get(k.strip(), None) for k in file_fields.split(',')})
 
                 LOG.info("walk_files: %s files found and %s folders to check.", len(results), len(folders_to_visit))
 
@@ -473,12 +516,6 @@ class DriveApi(BaseApiClient):
                     extra_kwargs['pageToken'] = resp['nextPageToken']
                 else:
                     break
-        
-        if mimetype:
-            LOG.info("walk_files: Mimetype filter summary - {} files matched, {} files excluded".format(
-                len(results), excluded_by_mimetype
-            ))
-        
         return results
 
     # NOTE: Do not decorate this function with backoff since it already calls retryable methods.
