@@ -775,3 +775,48 @@ ETag: "etag/bird"\r\n\r\n{
                     test_client.list_permissions_for_files(fake_file_ids)
             assert sum('Successfully processed request' in msg for msg in captured_logs.output) == 2
             assert sum('Error processing request' in msg for msg in captured_logs.output) == 1
+
+    @patch('tubular.google_api.service_account.Credentials.from_service_account_file', return_value=None)
+    def test_get_non_csv_files_filters_correctly(self, mock_from_service_account_file):  # pylint: disable=unused-argument
+        """
+        Test that get_non_csv_files returns non-CSV files and excludes CSV files and folders.
+        """
+        http_mock_sequence = HttpMockSequence([
+            ({'status': '200'}, self.mock_discovery_response_content),
+        ])
+        test_client = DriveApi('non-existent-secrets.json', http=http_mock_sequence)
+        
+        # Mock walk_files to return mixed file types
+        mock_files = [
+            {'id': 'file1', 'name': 'report.csv', 'mimeType': 'text/csv'},
+            {'id': 'file2', 'name': 'document.pdf', 'mimeType': 'application/pdf'},
+            {'id': 'folder1', 'name': 'MyFolder', 'mimeType': FOLDER_MIMETYPE},
+            {'id': 'file3', 'name': 'image.png', 'mimeType': 'image/png'},
+        ]
+        
+        with patch.object(test_client, 'walk_files', return_value=mock_files):
+            result = test_client.get_non_csv_files('test-folder-id', 'text/csv')
+        
+        # Should return only the PDF and PNG files, excluding CSV and folder
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]['name'], 'document.pdf')
+        self.assertEqual(result[1]['name'], 'image.png')
+
+    @patch('tubular.google_api.service_account.Credentials.from_service_account_file', return_value=None)
+    def test_get_non_csv_files_calls_walk_files(self, mock_from_service_account_file):  # pylint: disable=unused-argument
+        """
+        Test that get_non_csv_files calls walk_files with the correct folder ID.
+        """
+        http_mock_sequence = HttpMockSequence([
+            ({'status': '200'}, self.mock_discovery_response_content),
+        ])
+        test_client = DriveApi('non-existent-secrets.json', http=http_mock_sequence)
+        
+        with patch.object(test_client, 'walk_files', return_value=[]) as mock_walk:
+            test_client.get_non_csv_files('my-folder-id', 'application/pdf')
+            mock_walk.assert_called_once_with(
+                'my-folder-id',
+                file_fields='id, name, mimeType, createdTime',
+                mimetype=None,
+                recurse=True
+            )

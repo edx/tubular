@@ -139,16 +139,16 @@ class BaseApiClient:
             request_object = request_id_to_request_object[request_id]
             if exception:
                 if _should_retry_google_api(exception):
-                    LOG.error(u'Request throttled, adding to the retry queue: {}'.format(exception).encode('utf-8'))
+                    LOG.error(u'Request throttled, adding to the retry queue: {}'.format(exception))
                     retry_requests.append(request_object)
                 else:
                     # In this case, probably nothing can be done, so we just give up on this particular request and
                     # do not include it in the responses dict.
-                    LOG.error(u'Error processing request {}'.format(request_object).encode('utf-8'))
-                    LOG.error(text_type(exception).encode('utf-8'))
+                    LOG.error(u'Error processing request {}'.format(request_object))
+                    LOG.error(text_type(exception))
             else:
                 responses[request_object] = response
-                LOG.info(u'Successfully processed request {}.'.format(request_object).encode('utf-8'))
+                LOG.info(u'Successfully processed request {}.'.format(request_object))
 
         # Retry on API throttling at the HTTP request level.
         @backoff.on_exception(
@@ -271,7 +271,7 @@ class DriveApi(BaseApiClient):
             media_body=media,
             fields='id'
         ).execute()
-        LOG.info(u'File uploaded: ID="{}", name="{}"'.format(uploaded_file.get('id'), filename).encode('utf-8'))
+        LOG.info(u'File uploaded: ID="{}", name="{}"'.format(uploaded_file.get('id'), filename))
         return uploaded_file.get('id')
 
     # NOTE: Do not decorate this function with backoff since it already calls retryable methods.
@@ -360,7 +360,7 @@ class DriveApi(BaseApiClient):
                 reasons = []
                 if not prefix_check_passed:
                     reasons.append("Prefix did not match (expected '{}', file starts with '{}')".format(
-                        prefix, file_name[:len(prefix)] if len(file_name) >= len(prefix or '') else file_name
+                        prefix, file_name[:len(prefix)]
                     ))
                 if not date_check_passed:
                     reasons.append("Date check failed - file too recent (created {}, cutoff {})".format(
@@ -420,7 +420,7 @@ class DriveApi(BaseApiClient):
                 excluded_files.append(file_obj)
                 LOG.info(u"Not considered for deletion - Reason: Not a {} file (actual type: {}). File: '{}'".format(
                     exclude_mimetype, file_mimetype, file_name
-                ).encode('utf-8'))
+                ))
         
         return excluded_files
 
@@ -489,7 +489,7 @@ class DriveApi(BaseApiClient):
 
                 # Examine returned results to separate folders from non-folders.
                 for result in page_results:
-                    LOG.info(u"walk_files: Result: {}".format(result).encode('utf-8'))
+                    LOG.info(u"walk_files: Result: {}".format(result))
                     # Folders contain files - and get special treatment.
                     if result['mimeType'] == FOLDER_MIMETYPE:
                         if recurse and result['id'] not in visited_folders:
