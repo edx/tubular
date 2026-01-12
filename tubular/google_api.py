@@ -359,8 +359,9 @@ class DriveApi(BaseApiClient):
                 skipped_files_count += 1
                 reasons = []
                 if not prefix_check_passed:
+                    actual_prefix_length = min(len(file_name), len(prefix))
                     reasons.append("Prefix did not match (expected '{}', file starts with '{}')".format(
-                        prefix, file_name[:len(prefix)]
+                        prefix, file_name[:actual_prefix_length]
                     ))
                 if not date_check_passed:
                     reasons.append("Date check failed - file too recent (created {}, cutoff {})".format(
