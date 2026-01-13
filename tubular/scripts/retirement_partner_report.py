@@ -43,6 +43,7 @@ ERR_REPORTING = -9
 ERR_DRIVE_UPLOAD = -10
 ERR_CLEANUP = -11
 ERR_DRIVE_LISTING = -12
+ERR_MISSING_POC = -13
 
 SCRIPT_SHORTNAME = 'Partner report'
 LOG = partial(_log, SCRIPT_SHORTNAME)
@@ -316,17 +317,35 @@ def _add_comments_to_files(config, file_ids):
     }
 
     file_ids_and_comments = []
+    missing_poc_partners = []
+
     for partner in file_ids:
         if not external_emails[partner]:
-            LOG(
-                'WARNING: could not find a POC for the following partner: "{}". '
-                'Double check the partner folder permissions in Google Drive.'
+            # Check if this partner is exempt from POC requirements
+            if partner in config.get('exempted_partners', []):
+                LOG(
+                    'INFO: Partner "{}" is configured to not require a POC - skipping notification.'
                     .format(partner)
-            )
+                )
+            else:
+                # This is a compliance issue - missing POC prevents proper notification
+                missing_poc_partners.append(partner)
+                LOG(
+                    'ERROR: Could not find a Point of Contact (POC) for partner: "{}". '
+                    'Double check the partner folder permissions in Google Drive.'
+                    .format(partner)
+                )
         else:
             tag_string = ' '.join('+' + email for email in external_emails[partner])
             comment_content = NOTIFICATION_MESSAGE_TEMPLATE.format(tags=tag_string)
             file_ids_and_comments.append((file_ids[partner], comment_content))
+
+    # Fail if any partners are missing POC and not exempt.
+    if missing_poc_partners:
+        partner_word = 'partners' if len(missing_poc_partners) != 1 else 'partner'
+        FAIL(ERR_MISSING_POC,
+             'COMPLIANCE FAILURE: {} {} missing POC: {}. Project Coordinators must be informed.'
+             .format(len(missing_poc_partners), partner_word, ', '.join('"{}"'.format(p) for p in missing_poc_partners)))
 
     try:
         LOG('Adding notification comments to uploaded csv files.')
