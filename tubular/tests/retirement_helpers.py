@@ -90,7 +90,7 @@ def fake_config_file(f, orgs=None, fetch_ecom_segment_id=False, exempted_partner
         config['fetch_ecommerce_segment_id'] = True
 
     if exempted_partners:
-        config['partners_without_poc_required'] = exempted_partners
+        config['exempted_partners'] = exempted_partners
 
     yaml.safe_dump(config, f)
 
