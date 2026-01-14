@@ -335,10 +335,8 @@ def test_missing_poc_failure(*args, **kwargs):
     assert 'missing POC' in result.output  # From FAIL compliance message
     assert 'Project Coordinators must be informed' in result.output
 
-    # NEW: Verify that partners WITH POCs were still notified before the job failed
     assert mock_create_comments.call_count == 1
     create_comments_file_ids, create_comments_messages = zip(*mock_create_comments.call_args[0][0])
-    # Should have comments for the first 2 orgs (that have POCs), but not the 3rd org (no POC)
     expected_partners_with_poc = flatten_partner_list(fake_partners[:2])
     assert len(create_comments_file_ids) == len(expected_partners_with_poc)
     assert all('+some.contact@example.com' in msg for msg in create_comments_messages)
