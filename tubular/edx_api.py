@@ -361,11 +361,13 @@ class LmsApi(BaseApiClient):
         return self._request('POST', api_url)
 
     @_retry_lms_api()
-    def bulk_cleanup_retirements(self, usernames):
+    def bulk_cleanup_retirements(self, usernames, jenkins_run_id=None):
         """
         Deletes the retirements for all given usernames
         """
         data = {'usernames': usernames}
+        if jenkins_run_id:
+            data['jenkins_run_id'] = jenkins_run_id
         api_url = self.get_api_url('api/user/v1/accounts/retirement_cleanup')
         return self._request('POST', api_url, json=data)
 
