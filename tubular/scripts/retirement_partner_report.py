@@ -340,19 +340,20 @@ def _add_comments_to_files(config, file_ids):
             comment_content = NOTIFICATION_MESSAGE_TEMPLATE.format(tags=tag_string)
             file_ids_and_comments.append((file_ids[partner], comment_content))
 
+    if file_ids_and_comments:
+        try:
+            LOG('Adding notification comments to uploaded csv files.')
+            drive.create_comments_for_files(file_ids_and_comments)
+        except Exception as exc:  # pylint: disable=broad-except
+            # do not fail the script here, since comment errors are non-critical
+            LOG('WARNING: there was an error adding Google Drive comments to the csv files: {}'.format(exc))
+
     # Fail if any partners are missing POC and not exempt.
     if missing_poc_partners:
         partner_word = 'partners' if len(missing_poc_partners) != 1 else 'partner'
         FAIL(ERR_MISSING_POC,
              'COMPLIANCE FAILURE: {} {} missing POC: {}. Project Coordinators must be informed.'
              .format(len(missing_poc_partners), partner_word, ', '.join('"{}"'.format(p) for p in missing_poc_partners)))
-
-    try:
-        LOG('Adding notification comments to uploaded csv files.')
-        drive.create_comments_for_files(file_ids_and_comments)
-    except Exception as exc:  # pylint: disable=broad-except
-        # do not fail the script here, since comment errors are non-critical
-        LOG('WARNING: there was an error adding Google Drive comments to the csv files: {}'.format(exc))
 
 
 @click.command("generate_report")
