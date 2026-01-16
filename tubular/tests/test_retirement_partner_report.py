@@ -280,6 +280,7 @@ def test_successful_report(*args, **kwargs):
 @patch('tubular.google_api.DriveApi.create_file_in_folder')
 @patch('tubular.google_api.DriveApi.walk_files')
 @patch('tubular.google_api.DriveApi.list_permissions_for_files')
+@patch('tubular.google_api.DriveApi.create_comments_for_files')
 @patch('tubular.edx_api.BaseApiClient.get_access_token')
 @patch.multiple(
     'tubular.edx_api.LmsApi',
@@ -288,17 +289,19 @@ def test_successful_report(*args, **kwargs):
 )
 def test_missing_poc_failure(*args, **kwargs):
     """
-    Test that missing POC causes compliance failure
+    Test that missing POC causes compliance failure, but partners with POCs are still notified
     """
     mock_get_access_token = args[0]
-    mock_list_permissions = args[1]
-    mock_walk_files = args[2]
-    mock_create_files = args[3]
-    mock_driveapi = args[4]
+    mock_create_comments = args[1]
+    mock_list_permissions = args[2]
+    mock_walk_files = args[3]
+    mock_create_files = args[4]
+    mock_driveapi = args[5]
     mock_retirement_report = kwargs['retirement_partner_report']
     mock_retirement_cleanup = kwargs['retirement_partner_cleanup']
 
     mock_get_access_token.return_value = ('THIS_IS_A_JWT', None)
+    mock_create_comments.return_value = None
     fake_partners = list(itervalues(FAKE_ORGS))
 
     # Some partners have POCs, but the last one does not
@@ -331,6 +334,12 @@ def test_missing_poc_failure(*args, **kwargs):
     assert 'Point of Contact' in result.output  # From CRITICAL log message
     assert 'missing POC' in result.output  # From FAIL compliance message
     assert 'Project Coordinators must be informed' in result.output
+
+    assert mock_create_comments.call_count == 1
+    create_comments_file_ids, create_comments_messages = zip(*mock_create_comments.call_args[0][0])
+    expected_partners_with_poc = flatten_partner_list(fake_partners[:2])
+    assert len(create_comments_file_ids) == len(expected_partners_with_poc)
+    assert all('+some.contact@example.com' in msg for msg in create_comments_messages)
 
     # Ensure cleanup was NOT called since the job failed
     mock_retirement_cleanup.assert_not_called()
