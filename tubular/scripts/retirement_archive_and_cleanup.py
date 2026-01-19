@@ -201,14 +201,25 @@ def _archive_retirements_or_exit(config, learners, dry_run=False):
         FAIL_EXCEPTION(ERR_ARCHIVING, 'Unexpected error occurred archiving retirements!', exc)
 
 
-def _cleanup_retirements_or_exit(config, learners, redaction_id=None):
+def _cleanup_retirements_or_exit(
+    config,
+    learners,
+    redacted_username='redacted',
+    redacted_email='redacted',
+    redacted_name='redacted',
+):
     """
     Bulk deletes the retirements for this run
     """
     LOG('Cleaning up retirements for {} learners'.format(len(learners)))
     try:
         usernames = [l['original_username'] for l in learners]
-        config['LMS'].bulk_cleanup_retirements(usernames, redaction_id)
+        config['LMS'].bulk_cleanup_retirements(
+            usernames,
+            redacted_username,
+            redacted_email,
+            redacted_name,
+        )
     except Exception as exc:  # pylint: disable=broad-except
         FAIL_EXCEPTION(ERR_DELETING, 'Unexpected error occurred deleting retirements!', exc)
 
@@ -264,11 +275,34 @@ def _get_utc_now():
     type=int
 )
 @click.option(
-    '--redaction_id',
-    help='Identifier for this cleanup run (e.g. build/job number)',
-    type=str
+    '--redacted_username',
+    help='Value to write to LMS original_username field',
+    type=str,
+    default='redacted'
 )
-def archive_and_cleanup(config_file, cool_off_days, dry_run, start_date, end_date, batch_size, redaction_id):
+@click.option(
+    '--redacted_email',
+    help='Value to write to LMS original_email field',
+    type=str,
+    default='redacted'
+)
+@click.option(
+    '--redacted_name',
+    help='Value to write to LMS original_name field',
+    type=str,
+    default='redacted'
+)
+def archive_and_cleanup(
+    config_file,
+    cool_off_days,
+    dry_run,
+    start_date,
+    end_date,
+    batch_size,
+    redacted_username,
+    redacted_email,
+    redacted_name,
+):
     """
     Cleans up UserRetirementStatus rows in LMS by:
     1- Getting all rows currently in COMPLETE that were created --cool_off_days ago or more,
@@ -324,7 +358,13 @@ def archive_and_cleanup(config_file, cool_off_days, dry_run, start_date, end_dat
                 if dry_run:
                     LOG('This is a dry-run. Exiting before any retirements are cleaned up')
                 else:
-                    _cleanup_retirements_or_exit(config, batch, redaction_id)
+                    _cleanup_retirements_or_exit(
+                        config,
+                        batch,
+                        redacted_username,
+                        redacted_email,
+                        redacted_name,
+                    )
                     LOG('Archive and cleanup complete for batch #{}'.format(str(index + 1)))
                     time.sleep(DELAY)
         else:
