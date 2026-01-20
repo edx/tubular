@@ -68,7 +68,7 @@ def _fetch_learners_to_archive_or_exit(config, start_date, end_date, initial_sta
 def _batch_learners(learners=None, batch_size=None):
     """
     To avoid potentially overwheling the LMS with a large number of user retirements to
-    delete, create a list of smaller batches of users to iterate over. This has the
+    redact, create a list of smaller batches of users to iterate over. This has the
     added benefit of reducing the amount of user retirement archive requests that can
     get into a bad state should this script experience an error.
 
@@ -226,7 +226,7 @@ def _get_utc_now():
 )
 @click.option(
     '--cool_off_days',
-    help='Number of days a retirement should exist before being archived and deleted.',
+    help='Number of days a retirement should exist before being archived and redacted.',
     type=int,
     default=37  # 7 days before retirement, 30 after
 )
