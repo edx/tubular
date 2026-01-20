@@ -67,7 +67,7 @@ def _fetch_learners_to_archive_or_exit(config, start_date, end_date, initial_sta
 
 def _batch_learners(learners=None, batch_size=None):
     """
-    To avoid potentially overwheling the LMS with a large number of user retirements to
+    To avoid potentially overwhelming the LMS with a large number of user retirements to
     redact, create a list of smaller batches of users to iterate over. This has the
     added benefit of reducing the amount of user retirement archive requests that can
     get into a bad state should this script experience an error.
@@ -283,7 +283,7 @@ def archive_and_cleanup(
     1- Getting all rows currently in COMPLETE that were created --cool_off_days ago or more,
         unless a specific timeframe is specified
     2- Archiving them to S3 in an Athena-queryable format
-    3- Deleting them from LMS (by username)
+    3- Redacting them from LMS (by username)
     """
     try:
         LOG('Starting bulk update script: Config: {}'.format(config_file))
