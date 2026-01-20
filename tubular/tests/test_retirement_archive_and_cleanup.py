@@ -102,7 +102,7 @@ def test_successful(*args, **kwargs):
     assert mock_get_access_token.call_count == 1
     mock_get_learners.assert_called_once()
     mock_bulk_cleanup_retirements.assert_called_once_with(
-        ['test1', 'test2', 'test3'], 'redacted')
+        ['test1', 'test2', 'test3'], 'redacted', 'redacted', 'redacted')
 
     assert result.exit_code == 0
     assert 'Archive and cleanup complete' in result.output
@@ -132,8 +132,8 @@ def test_successful_with_batching(*args, **kwargs):
     assert mock_get_access_token.call_count == 1
     mock_get_learners.assert_called_once()
     get_learner_calls = [
-        call(['test1', 'test2'], 'redacted'),
-        call(['test3'], 'redacted')
+        call(['test1', 'test2'], 'redacted', 'redacted', 'redacted'),
+        call(['test3'], 'redacted', 'redacted', 'redacted')
     ]
     mock_bulk_cleanup_retirements.assert_has_calls(get_learner_calls)
 
