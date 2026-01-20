@@ -201,27 +201,16 @@ def _archive_retirements_or_exit(config, learners, dry_run=False):
         FAIL_EXCEPTION(ERR_ARCHIVING, 'Unexpected error occurred archiving retirements!', exc)
 
 
-def _cleanup_retirements_or_exit(
-    config,
-    learners,
-    redacted_username='redacted',
-    redacted_email='redacted',
-    redacted_name='redacted',
-):
+def _cleanup_retirements_or_exit(config, learners, redacted_value='redacted'):
     """
-    Bulk deletes the retirements for this run
+    Bulk redacts the retirements for this run
     """
     LOG('Cleaning up retirements for {} learners'.format(len(learners)))
     try:
         usernames = [l['original_username'] for l in learners]
-        config['LMS'].bulk_cleanup_retirements(
-            usernames,
-            redacted_username,
-            redacted_email,
-            redacted_name,
-        )
+        config['LMS'].bulk_cleanup_retirements(usernames, redacted_value)
     except Exception as exc:  # pylint: disable=broad-except
-        FAIL_EXCEPTION(ERR_DELETING, 'Unexpected error occurred deleting retirements!', exc)
+        FAIL_EXCEPTION(ERR_DELETING, 'Unexpected error occurred redacting retirements!', exc)
 
 def _get_utc_now():
     """
@@ -275,20 +264,8 @@ def _get_utc_now():
     type=int
 )
 @click.option(
-    '--redacted_username',
-    help='Value to write to LMS original_username field',
-    type=str,
-    default='redacted'
-)
-@click.option(
-    '--redacted_email',
-    help='Value to write to LMS original_email field',
-    type=str,
-    default='redacted'
-)
-@click.option(
-    '--redacted_name',
-    help='Value to write to LMS original_name field',
+    '--redacted_value',
+    help='Value to redact PII fields (username, email, name)',
     type=str,
     default='redacted'
 )
@@ -299,9 +276,7 @@ def archive_and_cleanup(
     start_date,
     end_date,
     batch_size,
-    redacted_username,
-    redacted_email,
-    redacted_name,
+    redacted_value,
 ):
     """
     Cleans up UserRetirementStatus rows in LMS by:
@@ -358,13 +333,7 @@ def archive_and_cleanup(
                 if dry_run:
                     LOG('This is a dry-run. Exiting before any retirements are cleaned up')
                 else:
-                    _cleanup_retirements_or_exit(
-                        config,
-                        batch,
-                        redacted_username,
-                        redacted_email,
-                        redacted_name,
-                    )
+                    _cleanup_retirements_or_exit(config, batch, redacted_value)
                     LOG('Archive and cleanup complete for batch #{}'.format(str(index + 1)))
                     time.sleep(DELAY)
         else:
