@@ -215,7 +215,7 @@ def test_bad_fetch(*_):
 def test_bad_lms_deletion(*_):
     result = _call_script()
     assert result.exit_code == ERR_DELETING
-    assert 'Unexpected error occurred deleting retirements!' in result.output
+    assert 'Unexpected error occurred redacting retirements!' in result.output
 
 
 @patch('tubular.edx_api.BaseApiClient.get_access_token', return_value=('THIS_IS_A_JWT', None))
