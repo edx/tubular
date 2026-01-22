@@ -4,6 +4,7 @@ Salesforce Marketing Cloud API class that is used to delete a user from SFMC.
 
 import logging
 import os
+from typing import Optional
 
 import backoff
 import requests
@@ -107,7 +108,7 @@ class SalesforceMarketingCloudApi:
         SalesforceMarketingCloudRecoverableException,
         max_tries=MAX_ATTEMPTS,
     )
-    def _get_contact_key_by_email(self, email: str, access_token: str) -> str:
+    def _get_contact_key_by_email(self, email: str, access_token: str) -> Optional[str]:
         """
         Search for a contact in SFMC by email and retrieve their contact key.
 
@@ -145,17 +146,20 @@ class SalesforceMarketingCloudApi:
                 response_data = response.json()
                 channel_address_entities = response_data.get('channelAddressResponseEntities', [])
                 
-                if channel_address_entities and len(channel_address_entities) > 0:
-                    contact_key_details = channel_address_entities[0].get('contactKeyDetails', [])
-                    if contact_key_details and len(contact_key_details) > 0:
-                        contact_key = contact_key_details[0].get('contactKey')
-                        logger.info(
-                            f"SFMC contact search succeeded for email {email}, found contact key: {contact_key}"
-                        )
-                        return contact_key
+                if not channel_address_entities:
+                    logger.info(f"SFMC contact search found no contact for email: {email}")
+                    return None
                 
-                logger.info(f"SFMC contact search found no contact for email: {email}")
-                return None
+                contact_key_details = channel_address_entities[0].get('contactKeyDetails', [])
+                if not contact_key_details:
+                    logger.info(f"SFMC contact search found no contact for email: {email}")
+                    return None
+                
+                contact_key = contact_key_details[0].get('contactKey')
+                logger.info(
+                    f"SFMC contact search succeeded for email {email}, found contact key: {contact_key}"
+                )
+                return contact_key
 
             error_msg = (
                 f"SFMC contact search failed with status {response.status_code}: "
@@ -167,6 +171,7 @@ class SalesforceMarketingCloudApi:
                 if error_details:
                     error_msg += f" - Details: {error_details}"
             except ValueError:
+                # Response body is not valid JSON, skip adding error details
                 pass
 
             if response.status_code == 429 or 500 <= response.status_code < 600:
