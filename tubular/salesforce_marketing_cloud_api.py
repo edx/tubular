@@ -4,6 +4,7 @@ Salesforce Marketing Cloud API class that is used to delete a user from SFMC.
 
 import logging
 import os
+from typing import Optional
 
 import backoff
 import requests
@@ -107,52 +108,142 @@ class SalesforceMarketingCloudApi:
         SalesforceMarketingCloudRecoverableException,
         max_tries=MAX_ATTEMPTS,
     )
-    def delete_user(self, user: dict) -> None:
+    def _get_contact_key_by_email(self, email: str, access_token: str) -> Optional[str]:
         """
-        Delete a user from Salesforce Marketing Cloud by marking them for deletion.
-
-        This method sends a request to SFMC to add the user's subscriber key to the
-        deletion data extension, marking them for removal.
+        Search for a contact in SFMC by email and retrieve their contact key.
 
         Args:
-            user (dict): User data containing 'user' key with 'id' field (LMS user ID)
+            email (str): Email address to search for
+            access_token (str): SFMC OAuth access token
+
+        Returns:
+            str: Contact key if found, None otherwise
 
         Raises:
-            TypeError: if user ID is not provided
             SalesforceMarketingCloudException: if the error from SFMC is unrecoverable/unretryable.
             SalesforceMarketingCloudRecoverableException: if the error from SFMC is recoverable/retryable.
         """
-        # Extract user ID - expects format: {'user': {'id': 1234}}
-        user_id = user['user']['id']
-        subscriber_key = str(user_id)
+        search_route = "contacts/v1/addresses/email/search"
+        search_url = f"https://{self.suppression_host}/{search_route}"
+        search_headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        search_data = {
+            "ChannelAddressList": [email],
+            "MaximumCount": 5
+        }
+
+        try:
+            response = requests.post(
+                search_url,
+                headers=search_headers,
+                json=search_data,
+                timeout=30,
+            )
+
+            if response.status_code == 200:
+                response_data = response.json()
+                channel_address_entities = response_data.get('channelAddressResponseEntities', [])
+                
+                if not channel_address_entities:
+                    logger.info(f"SFMC contact search found no contact for email: {email}")
+                    return None
+                
+                contact_key_details = channel_address_entities[0].get('contactKeyDetails', [])
+                if not contact_key_details:
+                    logger.info(f"SFMC contact search found no contact for email: {email}")
+                    return None
+                
+                contact_key = contact_key_details[0].get('contactKey')
+                logger.info(
+                    f"SFMC contact search succeeded for email {email}, found contact key: {contact_key}"
+                )
+                return contact_key
+
+            error_msg = (
+                f"SFMC contact search failed with status {response.status_code}: "
+                f"{response.reason}"
+            )
+
+            try:
+                error_details = response.json()
+                if error_details:
+                    error_msg += f" - Details: {error_details}"
+            except ValueError:
+                # Response body is not valid JSON, skip adding error details
+                pass
+
+            if response.status_code == 429 or 500 <= response.status_code < 600:
+                logger.warning(error_msg)
+                raise SalesforceMarketingCloudRecoverableException(error_msg)
+            else:
+                logger.error(error_msg)
+                raise SalesforceMarketingCloudException(error_msg)
+
+        except requests.exceptions.RequestException as exc:
+            error_msg = (
+                f"SFMC contact search failed with exception for email "
+                f"{email}: {str(exc)}"
+            )
+            logger.error(error_msg)
+            raise SalesforceMarketingCloudRecoverableException(error_msg)
+
+    @backoff.on_exception(
+        backoff.expo,
+        SalesforceMarketingCloudRecoverableException,
+        max_tries=MAX_ATTEMPTS,
+    )
+    def delete_user(self, user: dict) -> None:
+        """
+        Delete a user from Salesforce Marketing Cloud.
+
+        This method first searches for the user by email to get their contact key,
+        then uses that contact key to delete the contact from SFMC.
+
+        Args:
+            user (dict): User data containing 'original_email' field
+
+        Raises:
+            TypeError: if user email is not provided
+            SalesforceMarketingCloudException: if the error from SFMC is unrecoverable/unretryable.
+            SalesforceMarketingCloudRecoverableException: if the error from SFMC is recoverable/retryable.
+        """
+        email = user.get('original_email')
+        if not email:
+            raise TypeError("User email is required for SFMC deletion")
 
         access_token = self._get_access_token()
 
-        suppression_route = "hub/v1/dataevents/key:Contacts_for_Delete/rowset"
-        suppress_url = f"https://{self.suppression_host}/{suppression_route}"
-        suppress_headers = {
+        contact_key = self._get_contact_key_by_email(email, access_token)
+        
+        if not contact_key:
+            logger.info(f"No contact found in SFMC for email {email}, nothing to delete")
+            return
+
+        delete_route = "contacts/v1/contacts/actions/delete?type=keys"
+        delete_url = f"https://{self.suppression_host}/{delete_route}"
+        delete_headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
         }
 
-        suppress_data = [
-            {
-                "keys": {"SubscriberKey": subscriber_key},
-                "values": {"IsDelete": True},
-            }
-        ]
+        delete_data = {
+            "values": [contact_key],
+            "DeleteOperationType": "ContactAndAttributes"
+        }
 
         try:
             response = requests.post(
-                suppress_url,
-                headers=suppress_headers,
-                json=suppress_data,
+                delete_url,
+                headers=delete_headers,
+                json=delete_data,
                 timeout=30,
             )
 
             if response.status_code == 200:
                 logger.info(
-                    f"SFMC user deletion succeeded for subscriber key: {subscriber_key}"
+                    f"SFMC user deletion succeeded for contact key: {contact_key}"
                 )
                 return
 
@@ -177,8 +268,8 @@ class SalesforceMarketingCloudApi:
 
         except requests.exceptions.RequestException as exc:
             error_msg = (
-                f"SFMC user deletion failed with exception for subscriber key "
-                f"{subscriber_key}: {str(exc)}"
+                f"SFMC user deletion failed with exception for "
+                f"contact key {contact_key}: {str(exc)}"
             )
             logger.error(error_msg)
             raise SalesforceMarketingCloudRecoverableException(error_msg)
