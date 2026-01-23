@@ -147,17 +147,17 @@ class SalesforceMarketingCloudApi:
                 channel_address_entities = response_data.get('channelAddressResponseEntities', [])
                 
                 if not channel_address_entities:
-                    logger.info(f"SFMC contact search found no contact for email: {email}")
+                    logger.info("SFMC contact search found no contact for email")
                     return None
                 
                 contact_key_details = channel_address_entities[0].get('contactKeyDetails', [])
                 if not contact_key_details:
-                    logger.info(f"SFMC contact search found no contact for email: {email}")
+                    logger.info("SFMC contact search found no contact for email")
                     return None
                 
                 contact_key = contact_key_details[0].get('contactKey')
                 logger.info(
-                    f"SFMC contact search succeeded for email {email}, found contact key: {contact_key}"
+                    f"SFMC contact search succeeded, found contact key: {contact_key}"
                 )
                 return contact_key
 
@@ -183,8 +183,7 @@ class SalesforceMarketingCloudApi:
 
         except requests.exceptions.RequestException as exc:
             error_msg = (
-                f"SFMC contact search failed with exception for email "
-                f"{email}: {str(exc)}"
+                f"SFMC contact search failed with exception: {str(exc)}"
             )
             logger.error(error_msg)
             raise SalesforceMarketingCloudRecoverableException(error_msg)
@@ -218,7 +217,7 @@ class SalesforceMarketingCloudApi:
         contact_key = self._get_contact_key_by_email(email, access_token)
         
         if not contact_key:
-            logger.info(f"No contact found in SFMC for email {email}, nothing to delete")
+            logger.info("No contact found in SFMC, nothing to delete")
             return
 
         delete_route = "contacts/v1/contacts/actions/delete?type=keys"
