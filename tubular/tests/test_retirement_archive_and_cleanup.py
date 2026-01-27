@@ -102,7 +102,7 @@ def test_successful(*args, **kwargs):
     assert mock_get_access_token.call_count == 1
     mock_get_learners.assert_called_once()
     mock_bulk_cleanup_retirements.assert_called_once_with(
-        ['test1', 'test2', 'test3'])
+        ['test1', 'test2', 'test3'], 'redacted', 'redacted', 'redacted')
 
     assert result.exit_code == 0
     assert 'Archive and cleanup complete' in result.output
@@ -131,7 +131,10 @@ def test_successful_with_batching(*args, **kwargs):
     # Called once to get the LMS token
     assert mock_get_access_token.call_count == 1
     mock_get_learners.assert_called_once()
-    get_learner_calls = [call(['test1', 'test2']), call(['test3'])]
+    get_learner_calls = [
+        call(['test1', 'test2'], 'redacted', 'redacted', 'redacted'),
+        call(['test3'], 'redacted', 'redacted', 'redacted')
+    ]
     mock_bulk_cleanup_retirements.assert_has_calls(get_learner_calls)
 
     assert result.exit_code == 0
@@ -212,7 +215,7 @@ def test_bad_fetch(*_):
 def test_bad_lms_deletion(*_):
     result = _call_script()
     assert result.exit_code == ERR_DELETING
-    assert 'Unexpected error occurred deleting retirements!' in result.output
+    assert 'Unexpected error occurred redacting retirements!' in result.output
 
 
 @patch('tubular.edx_api.BaseApiClient.get_access_token', return_value=('THIS_IS_A_JWT', None))
