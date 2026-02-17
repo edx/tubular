@@ -26,7 +26,6 @@ The migration process was completed through [PR #34063](https://github.com/opene
 - `tubular/scripts/get_learners_to_retire.py`
 - `tubular/scripts/replace_usernames.py`
 - `tubular/scripts/retire_one_learner.py`
-- `tubular/scripts/retirement_archive_and_cleanup.py`
 - `tubular/scripts/retirement_bulk_status_update.py`
 - `tubular/scripts/retirement_partner_report.py`
 - `tubular/scripts/structures.py`
