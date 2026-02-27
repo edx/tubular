@@ -303,22 +303,23 @@ class GitHubApiTestCase(TestCase):
         self.repo_mock.get_commit.assert_called_with(sha)
 
     @ddt.data(
-        ('', 'success', None),  # Case where no actions are found
-        ('passed', 'passed', True),    # Case where actions are found and succeed
-        ('failed', 'failed', False),   # Case where actions are found and fail
+        ('no_checks', 'success', None),  # Case where no checks are found (new sentinel)
+        ('', 'success', None),           # Case where no checks are found (legacy empty string)
+        ('passed', 'passed', True),      # Case where checks are found and succeed
+        ('failed', 'failed', False),     # Case where checks are found and fail
     )
     @ddt.unpack
     def test_poll_commit(self, initial_status, end_status, successful):
         url_dict = {'TravisCI': 'some url'}
         side_effects = [
-            (False, url_dict, initial_status) if initial_status == '' else (True, url_dict, initial_status),
+            (False, url_dict, initial_status) if initial_status in ('', 'no_checks') else (True, url_dict, initial_status),
             (successful, url_dict, end_status),
         ]
         
         with patch.object(self.api, '_is_commit_successful', side_effect=side_effects) as mock_is_commit_successful:
             result = self.api._poll_commit('some sha')  # pylint: disable=protected-access
 
-            if initial_status == '':
+            if initial_status in ('', 'no_checks'):
                 # We expect the function to return immediately after the first call
                 assert result[0] == 'success'
                 assert result[1] is None
@@ -326,6 +327,58 @@ class GitHubApiTestCase(TestCase):
                 # Ensure the function processes both calls
                 assert result[0] == end_status
                 assert result[1] == url_dict
+
+    @ddt.data(
+        # Empty results - should return pending for safety
+        ({}, 'pending'),
+        # Single check states
+        ({'check1': ('success', 'url')}, 'success'),
+        ({'check1': ('failure', 'url')}, 'failure'),
+        ({'check1': ('pending', 'url')}, 'pending'),
+        ({'check1': ('in_progress', 'url')}, 'pending'),
+        ({'check1': ('queued', 'url')}, 'pending'),
+        ({'check1': ('waiting', 'url')}, 'pending'),
+        ({'check1': ('requested', 'url')}, 'pending'),
+        ({'check1': (None, 'url')}, 'pending'),
+        ({'check1': ('neutral', 'url')}, 'success'),
+        ({'check1': ('skipped', 'url')}, 'success'),
+        # Multiple checks - mixed states
+        ({'check1': ('success', 'url'), 'check2': ('success', 'url')}, 'success'),
+        ({'check1': ('success', 'url'), 'check2': ('pending', 'url')}, 'pending'),
+        ({'check1': ('success', 'url'), 'check2': ('in_progress', 'url')}, 'pending'),
+        ({'check1': ('success', 'url'), 'check2': ('failure', 'url')}, 'failure'),
+        # Pending takes precedence over failure
+        ({'check1': ('pending', 'url'), 'check2': ('failure', 'url')}, 'pending'),
+        ({'check1': ('in_progress', 'url'), 'check2': ('failure', 'url')}, 'pending'),
+    )
+    @ddt.unpack
+    def test_aggregate_validation_results(self, results, expected_status):
+        """Test aggregate_validation_results with various check states including new pending states."""
+        actual_status = self.api.aggregate_validation_results(results)
+        assert actual_status == expected_status
+
+    @ddt.data(
+        # Conclusion takes precedence when present
+        ('success', 'completed', 'success'),
+        ('failure', 'completed', 'failure'),
+        ('neutral', 'completed', 'neutral'),
+        ('skipped', 'completed', 'skipped'),
+        # status='completed' without conclusion should return 'pending' (race condition)
+        (None, 'completed', 'pending'),
+        # Other statuses without conclusion
+        (None, 'in_progress', 'in_progress'),
+        (None, 'queued', 'queued'),
+        (None, 'waiting', 'waiting'),
+        (None, 'requested', 'requested'),
+        (None, 'pending', 'pending'),
+        # Both None - default to pending
+        (None, None, 'pending'),
+    )
+    @ddt.unpack
+    def test_map_check_state(self, conclusion, status, expected_state):
+        """Test _map_check_state handles completed without conclusion race condition."""
+        actual_state = self.api._map_check_state(conclusion, status)  # pylint: disable=protected-access
+        assert actual_state == expected_state
 
     @ddt.data(
         (
