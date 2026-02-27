@@ -414,7 +414,7 @@ class GitHubAPI:
         results.update({
             status.context: (
                 status.state.lower() if status.state is not None else None,
-                status.target_url
+                status.target_url if status.target_url is not None else ''
             )
             for status in combined_status.statuses
         })
@@ -422,8 +422,12 @@ class GitHubAPI:
         check_suites = self.get_commit_check_suites(commit)
         results.update({
             suite['app']['name']: (
-                suite.get('conclusion').lower() if suite.get('conclusion') is not None else 'pending',
-                suite['url']
+                # Map check suite states: conclusion (when complete) or status (when running)
+                # If conclusion is not None, use it; otherwise fall back to status
+                # GitHub API: status is 'queued', 'in_progress', or 'completed'
+                #             conclusion is 'success', 'failure', etc. (only when completed)
+                (suite.get('conclusion') or suite.get('status', 'pending')).lower(),
+                suite.get('url', '')
             )
             for suite in check_suites['check_suites']
             if self.all_checks or suite['app']['name'] in required_checks
@@ -433,13 +437,18 @@ class GitHubAPI:
         check_runs = self.get_commit_check_runs(commit)
         results.update({
             suite['name']: (
-                suite.get('conclusion').lower() if suite.get('conclusion') is not None else 'pending',
-                suite['url']
+                # Map check run states: conclusion (when complete) or status (when running)
+                # GitHub API: status is 'queued', 'in_progress', 'completed', 'waiting', 'requested'
+                #             conclusion is 'success', 'failure', 'neutral', etc. (only when completed)
+                # Use conclusion if present, otherwise use status
+                (suite.get('conclusion') or suite.get('status', 'pending')).lower(),
+                suite.get('url', '')
             )
             for suite in check_runs['check_runs']
             if self.all_checks or suite['name'] in required_checks
         })
 
+        LOG.info("Retrieved {} validation result(s) for commit".format(len(results)))
         return results
 
     @backoff.on_exception(backoff.expo, (RateLimitExceededException, socket.timeout), max_tries=7,
@@ -483,12 +492,31 @@ class GitHubAPI:
         """
         Aggregate validation results. Returns 'success' if all validations
         are 'success' or 'neutral', 'pending' if any validations are 'pending',
-        or 'failure' otherwise.
+        'in_progress', 'queued', 'waiting', or 'requested', or 'failure' otherwise.
+        
+        This ensures that checks that are still running will cause the aggregate
+        to be 'pending', preventing deployments from proceeding while checks are
+        still in progress.
         """
-        if any(state in ('pending', None) for (state, url) in results.values()):
+        # Safety check: empty results should not return success
+        # This is handled by _is_commit_successful but added here for safety
+        if not results:
+            LOG.warning("aggregate_validation_results called with empty results")
             return 'pending'
+        
+        # List of states that indicate a check is still running
+        # Includes None for cases where state hasn't been set yet
+        pending_states = {'pending', 'in_progress', 'queued', 'waiting', 'requested', None}
+        
+        # Check if any validations are still running
+        if any(state in pending_states for (state, url) in results.values()):
+            return 'pending'
+        
+        # Check if all validations passed
         if all(state in ('success', 'neutral', 'skipped') for (state, url) in results.values()):
             return 'success'
+        
+        # Otherwise, at least one check failed
         return 'failure'
 
     def _is_commit_successful(self, sha):
@@ -510,8 +538,18 @@ class GitHubAPI:
         aggregate_validation = self.aggregate_validation_results(all_validations)
 
         # Return false if there are no checks so that commits whose tests haven't started yet are not valid
+        # This is critical for preventing deployments during race conditions when checks are being re-run
         if len(all_validations) < 1:
-            return (False, {})
+            LOG.warning(
+                "No validation checks found for commit {}. This may indicate checks haven't started yet, "
+                "or all checks are being filtered out.".format(sha[:7])
+            )
+            return (False, {}, 'no_checks')
+
+        # Log the aggregate status for debugging
+        LOG.info("Commit {} has aggregate status: {} ({} checks)".format(
+            sha[:7], aggregate_validation, len(all_validations)
+        ))
 
         return (
             aggregate_validation == 'success',
@@ -591,10 +629,15 @@ class GitHubAPI:
         )
         def _run():
             result = self._is_commit_successful(sha)
-            if result[0] == False:  # No Checks found against the Commit
-                # Returning any string other than '' will set the commit status to succeed. 
-                # Returning 'success' to avoid breaking pipeline checks in case no actions are found
+            # result = (success_bool, statuses_dict, aggregate_status)
+            
+            # If no checks were found, return success to avoid waiting forever
+            if result[2] == 'no_checks':
+                LOG.info("No checks found for commit {}. Polling will return success.".format(sha[:7]))
                 return ("success", None)
+            
+            # Return the aggregate status and statuses dict
+            # The backoff decorator will retry if aggregate_status == 'pending'
             return (result[2], result[1])
         return _run()
 
