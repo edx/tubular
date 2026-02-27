@@ -632,7 +632,8 @@ class GitHubAPI:
             # result = (success_bool, statuses_dict, aggregate_status)
             
             # If no checks were found, return success to avoid waiting forever
-            if result[2] == 'no_checks':
+            # Check for both 'no_checks' (explicitly set) and '' (empty string for backward compatibility)
+            if result[2] in ('no_checks', ''):
                 LOG.info("No checks found for commit {}. Polling will return success.".format(sha[:7]))
                 return ("success", None)
             
