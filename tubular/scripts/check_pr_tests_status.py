@@ -59,9 +59,8 @@ LOG = logging.getLogger(__name__)
     default=sys.stdout
 )
 @click.option(
-    '--all-checks',
-    help="Check all validation contexts, whehther it is required or not",
-    is_flag=True,
+    '--all-checks/--required-checks-only',
+    help="Check all validation contexts, or only required ones.",
     default=True
 )
 @click.option(
@@ -78,12 +77,11 @@ LOG = logging.getLogger(__name__)
     '--min-checks',
     help=u"Minimum number of checks required to be present before allowing success. Set to 0 to disable.",
     default=1,
-    type=int,
+    type=click.IntRange(min=0),
 )
 @click.option(
-    '--fail-on-pending',
+    '--fail-on-pending/--no-fail-on-pending',
     help=u"Fail if any checks are still pending/in-progress. Recommended for deployment gates.",
-    is_flag=True,
     default=True
 )
 def check_tests(

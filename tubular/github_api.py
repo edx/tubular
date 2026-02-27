@@ -398,6 +398,35 @@ class GitHubAPI:
 
         return data
 
+    def _map_check_state(self, conclusion, status):
+        """
+        Map GitHub Check Run/Suite state to normalized value.
+        Handles race condition where status='completed' but conclusion is None.
+
+        Arguments:
+            conclusion: The conclusion field from the check (may be None)
+            status: The status field from the check (may be None)
+
+        Returns:
+            str: Normalized state value
+        """
+        # If we have a conclusion, use it (check is truly complete)
+        if conclusion is not None:
+            return conclusion.lower()
+
+        # No conclusion - look at status
+        status_value = status if status is not None else 'pending'
+
+        # Special case: 'completed' without conclusion is a race condition
+        # Treat as pending to avoid misclassifying as failure
+        if status_value.lower() == 'completed':
+            LOG.debug("Check has status='completed' but no conclusion yet - treating as pending")
+            return 'pending'
+
+        # For all other statuses (queued, in_progress, waiting, requested)
+        # return the status as-is
+        return status_value.lower()
+
     def get_validation_results(self, commit):
         """
         Return a list of validations (statuses and check runs), their results (success/failure/pending),
@@ -422,11 +451,8 @@ class GitHubAPI:
         check_suites = self.get_commit_check_suites(commit)
         results.update({
             suite['app']['name']: (
-                # Map check suite states: conclusion (when complete) or status (when running)
-                # If conclusion is not None, use it; otherwise fall back to status
-                # GitHub API: status is 'queued', 'in_progress', or 'completed'
-                #             conclusion is 'success', 'failure', etc. (only when completed)
-                (suite.get('conclusion') or suite.get('status', 'pending')).lower(),
+                # Map check suite states using helper to handle 'completed' without conclusion
+                self._map_check_state(suite.get('conclusion'), suite.get('status')),
                 suite.get('url', '')
             )
             for suite in check_suites['check_suites']
@@ -437,11 +463,8 @@ class GitHubAPI:
         check_runs = self.get_commit_check_runs(commit)
         results.update({
             suite['name']: (
-                # Map check run states: conclusion (when complete) or status (when running)
-                # GitHub API: status is 'queued', 'in_progress', 'completed', 'waiting', 'requested'
-                #             conclusion is 'success', 'failure', 'neutral', etc. (only when completed)
-                # Use conclusion if present, otherwise use status
-                (suite.get('conclusion') or suite.get('status', 'pending')).lower(),
+                # Map check run states using helper to handle 'completed' without conclusion
+                self._map_check_state(suite.get('conclusion'), suite.get('status')),
                 suite.get('url', '')
             )
             for suite in check_runs['check_runs']
