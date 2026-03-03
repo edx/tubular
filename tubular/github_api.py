@@ -554,7 +554,7 @@ class GitHubAPI:
         Returns:
             tuple(bool, dict, string):
                 bool: True when the combined state equals 'success', False otherwise
-                dict: Key/values of ci_context:ci_url
+                dict: Key/values of ci_context:"url status"
                 string: The aggregate validation status of the commit
         """
         all_validations = self.filter_validation_results(self.get_validation_results(sha))
@@ -590,7 +590,7 @@ class GitHubAPI:
         Returns:
             tuple(bool, dict):
                 bool: True if all tests have passed successfully, False otherwise
-                dict: Key/values of ci_context:ci_url
+                dict: Key/values of ci_context:"url status"
 
         Raises:
             github.GithubException.GithubException: Unknown errors from github
@@ -608,7 +608,7 @@ class GitHubAPI:
         Returns:
             tuple(bool, dict):
                 bool: True if all tests have passed successfully, False otherwise
-                dict: Key/values of ci_context:ci_url
+                dict: Key/values of ci_context:"url status"
 
         Raises:
             github.GithubException.GithubException: Unknown errors from github
@@ -631,7 +631,9 @@ class GitHubAPI:
             sha (str): The SHA of which to get the status.
 
         Returns:
-            tuple(string, dict): the current commit status, and the results and urls of all validations
+            tuple(string, dict): 
+                string: The current commit status ('success', 'pending', 'failure', etc.)
+                dict: Validation results with ci_context:"url status"
         """
 
         @backoff.on_exception(
