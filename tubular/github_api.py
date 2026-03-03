@@ -558,16 +558,18 @@ class GitHubAPI:
                 string: The aggregate validation status of the commit
         """
         all_validations = self.filter_validation_results(self.get_validation_results(sha))
-        aggregate_validation = self.aggregate_validation_results(all_validations)
-
+        
         # Return false if there are no checks so that commits whose tests haven't started yet are not valid
         # This is critical for preventing deployments during race conditions when checks are being re-run
+        # Check this BEFORE calling aggregate_validation_results to avoid duplicate warnings
         if len(all_validations) < 1:
             LOG.warning(
                 "No validation checks found for commit {}. This may indicate checks haven't started yet, "
                 "or all checks are being filtered out.".format(sha[:7])
             )
             return (False, {}, 'no_checks')
+        
+        aggregate_validation = self.aggregate_validation_results(all_validations)
 
         # Log the aggregate status for debugging
         LOG.info("Commit {} has aggregate status: {} ({} checks)".format(
@@ -657,8 +659,7 @@ class GitHubAPI:
             # result = (success_bool, statuses_dict, aggregate_status)
             
             # If no checks were found, return success to avoid waiting forever
-            # Check for both 'no_checks' (explicitly set) and '' (empty string for backward compatibility)
-            if result[2] in ('no_checks', ''):
+            if result[2] == 'no_checks':
                 LOG.info("No checks found for commit {}. Polling will return success.".format(sha[:7]))
                 return ("success", None)
             

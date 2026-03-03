@@ -75,7 +75,12 @@ LOG = logging.getLogger(__name__)
 )
 @click.option(
     '--min-checks',
-    help=u"Minimum number of checks required to be present before allowing success. Set to 0 to disable.",
+    help=(
+        u"Minimum number of checks required to be present before allowing success. "
+        u"BREAKING CHANGE: Now defaults to 1 (previously allowed 0 checks to pass). "
+        u"This prevents deployments during race conditions when checks haven't started yet. "
+        u"Set to 0 to restore old behavior for repos with no CI checks configured."
+    ),
     default=1,
     type=click.IntRange(min=0),
 )
@@ -138,7 +143,8 @@ def check_tests(
     if check_count < min_checks:
         LOG.error(
             "DEPLOYMENT GATE FAILURE: Only {} check(s) found, but minimum of {} required. "
-            "This may indicate checks haven't started yet or a configuration issue.".format(
+            "This may indicate checks haven't started yet or a configuration issue. "
+            "For repos with no CI checks, use --min-checks=0 to allow deployment.".format(
                 check_count, min_checks
             )
         )
@@ -168,6 +174,10 @@ def check_tests(
                 LOG.info("Check \"{test_name}\" is still running: {status}".format(
                     test_name=test_name, status=test_status_string))
             # Check for success/skipped states
+            # Note: 'neutral' is a valid GitHub check conclusion for informational checks that
+            # complete successfully but neither pass nor fail (e.g., linting suggestions).
+            # Treating neutral as passing is consistent with aggregate_validation_results in github_api.py
+            # and prevents informational checks from blocking deployments.
             elif test_status_string.lower() in ["success", "skipped", "neutral"]:
                 successful_checks.append(test_name)
                 LOG.info("Check \"{test_name}\" passed: {status}".format(

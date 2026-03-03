@@ -303,8 +303,7 @@ class GitHubApiTestCase(TestCase):
         self.repo_mock.get_commit.assert_called_with(sha)
 
     @ddt.data(
-        ('no_checks', 'success', None),  # Case where no checks are found (new sentinel)
-        ('', 'success', None),           # Case where no checks are found (legacy empty string)
+        ('no_checks', 'success', None),  # Case where no checks are found
         ('passed', 'passed', True),      # Case where checks are found and succeed
         ('failed', 'failed', False),     # Case where checks are found and fail
     )
@@ -312,14 +311,14 @@ class GitHubApiTestCase(TestCase):
     def test_poll_commit(self, initial_status, end_status, successful):
         url_dict = {'TravisCI': 'some url'}
         side_effects = [
-            (False, url_dict, initial_status) if initial_status in ('', 'no_checks') else (True, url_dict, initial_status),
+            (False, url_dict, initial_status) if initial_status == 'no_checks' else (True, url_dict, initial_status),
             (successful, url_dict, end_status),
         ]
         
         with patch.object(self.api, '_is_commit_successful', side_effect=side_effects) as mock_is_commit_successful:
             result = self.api._poll_commit('some sha')  # pylint: disable=protected-access
 
-            if initial_status in ('', 'no_checks'):
+            if initial_status == 'no_checks':
                 # We expect the function to return immediately after the first call
                 assert result[0] == 'success'
                 assert result[1] is None
