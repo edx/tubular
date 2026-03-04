@@ -570,8 +570,9 @@ class DriveApi(BaseApiClient):
     @backoff.on_exception(
         backoff.expo,
         HttpError,
-        max_tries=BACKOFF_MAX_TRIES,
-        giveup=_fatal_code
+        max_time=600,  # 10 minutes
+        giveup=lambda e: not _should_retry_google_api(e),
+        on_backoff=lambda details: _backoff_handler(details),  # pylint: disable=unnecessary-lambda
     )
     def list_comments_for_file(self, file_id, fields='id, content, createdTime'):
         """
