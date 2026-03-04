@@ -567,6 +567,41 @@ class DriveApi(BaseApiClient):
 
         return responses
 
+    @backoff.on_exception(
+        backoff.expo,
+        HttpError,
+        max_tries=BACKOFF_MAX_TRIES,
+        giveup=_fatal_code
+    )
+    def list_comments_for_file(self, file_id, fields='id, content, createdTime'):
+        """
+        List comments for a file.
+
+        Args:
+            file_id (str): Drive file ID for which to list comments.
+            fields (str): comma separated list of fields to describe each comment resource in the response.
+
+        Returns: list of comment resources (list of dict). The contents of the comment resources are dictated
+            by the `fields` arg.
+
+        Throws:
+            googleapiclient.errors.HttpError:
+                For some non-retryable 4xx or 5xx error. See the full list here:
+                https://developers.google.com/drive/api/v3/handle-errors
+        """
+        try:
+            response = self._client.comments().list(  # pylint: disable=no-member
+                fileId=file_id,
+                fields='comments({})'.format(fields),
+                supportsAllDrives=True
+            ).execute()
+            return response.get('comments', [])
+        except HttpError as exc:
+            if exc.resp.status == 404:
+                # File not found or no access
+                return []
+            raise
+
     # NOTE: Do not decorate this function with backoff since it already calls retryable methods.
     def list_permissions_for_files(self, file_ids, fields='emailAddress, role'):
         """
