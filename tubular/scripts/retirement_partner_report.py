@@ -289,27 +289,41 @@ def _push_files_to_google(config, partner_filenames):
     return file_ids
 
 
-def _add_comments_to_files(config, file_ids):
+def _get_external_emails_for_partners(drive, config, partners=None):
     """
-    Add comments to the uploaded csv files, triggering email notification.
-
+    Extract external email addresses from partner folder permissions.
+    
+    This shared helper ensures consistent handling of permissions and denied domains
+    across different notification paths (upload comments and deletion warnings).
+    
     Args:
-        file_ids (dict): Mapping of partner names to Drive file IDs corresponding to the newly uploaded csv files.
+        drive (DriveApi): Initialized Drive API client.
+        config (dict): Configuration dictionary containing partner_folder_mapping and denied_notification_domains.
+        partners (list, optional): List of specific partner names to process. If None, processes all partners
+                                   in partner_folder_mapping.
+    
+    Returns:
+        dict: Mapping of partner names to lists of external email addresses (denied domains filtered out).
     """
-    drive = DriveApi(config['google_secrets_file'])
-
+    # Default to all partners if not specified
+    if partners is None:
+        partners = list(config['partner_folder_mapping'].keys())
+    
+    # Get unique folder IDs for the specified partners
+    folder_ids = {config['partner_folder_mapping'][partner] for partner in partners}
+    
     partner_folders_to_permissions = drive.list_permissions_for_files(
-        config['partner_folder_mapping'].values(),
+        folder_ids,
         fields='emailAddress',
     )
-
-    # create a mapping of partners to a list of permissions dicts:
+    
+    # Create a mapping of partners to a list of permissions dicts
     permissions = {
         partner: partner_folders_to_permissions[config['partner_folder_mapping'][partner]]
-        for partner in file_ids
+        for partner in partners
     }
-
-    # throw out all denied addresses, and flatten the permissions dicts to just the email:
+    
+    # Filter out denied addresses and flatten to just email addresses
     external_emails = {
         partner: [
             perm['emailAddress']
@@ -321,6 +335,21 @@ def _add_comments_to_files(config, file_ids):
         ]
         for partner in permissions
     }
+    
+    return external_emails
+
+
+def _add_comments_to_files(config, file_ids):
+    """
+    Add comments to the uploaded csv files, triggering email notification.
+
+    Args:
+        file_ids (dict): Mapping of partner names to Drive file IDs corresponding to the newly uploaded csv files.
+    """
+    drive = DriveApi(config['google_secrets_file'])
+    
+    # Get external emails for partners with uploaded files
+    external_emails = _get_external_emails_for_partners(drive, config, partners=list(file_ids.keys()))
 
     file_ids_and_comments = []
     missing_poc_partners = []
@@ -390,29 +419,8 @@ def _check_and_warn_about_expiring_files(config):
         now = datetime.now(UTC)
         warning_threshold = now - timedelta(days=(retention_days - warning_days))
         
-        # Get folder permissions (same as in _add_comments_to_files)
-        partner_folders_to_permissions = drive.list_permissions_for_files(
-            config['partner_folder_mapping'].values(),
-            fields='emailAddress',
-        )
-        
-        # Get external emails per partner
-        permissions = {
-            partner: partner_folders_to_permissions[config['partner_folder_mapping'][partner]]
-            for partner in config['partner_folder_mapping']
-        }
-        
-        external_emails = {
-            partner: [
-                perm['emailAddress']
-                for perm in permissions[partner]
-                if not any(
-                    perm['emailAddress'].lower().endswith(denied_domain.lower())
-                    for denied_domain in config['denied_notification_domains']
-                )
-            ]
-            for partner in permissions
-        }
+        # Get external emails per partner using shared helper
+        external_emails = _get_external_emails_for_partners(drive, config)
         
         # Check files in each partner folder
         platform_name = config['partner_report_platform_name']
