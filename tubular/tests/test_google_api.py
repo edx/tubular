@@ -820,3 +820,126 @@ ETag: "etag/bird"\r\n\r\n{
                 mimetype=None,
                 recurse=True
             )
+
+    @patch('tubular.google_api.service_account.Credentials.from_service_account_file', return_value=None)
+    def test_list_comments_single_page(self, mock_from_service_account_file):  # pylint: disable=unused-argument
+        """
+        Test listing comments for a file when all comments fit on a single page.
+        """
+        fake_file_id = 'fake-file-id'
+        comments_response = json.dumps({
+            'comments': [
+                {
+                    'id': 'comment-1',
+                    'content': 'First comment',
+                    'createdTime': '2026-03-01T10:00:00.000Z'
+                },
+                {
+                    'id': 'comment-2',
+                    'content': 'Second comment',
+                    'createdTime': '2026-03-02T11:00:00.000Z'
+                }
+            ]
+        }).encode('utf-8')
+        
+        http_mock_sequence = HttpMockSequence([
+            ({'status': '200'}, self.mock_discovery_response_content),
+            ({'status': '200'}, comments_response),
+        ])
+        test_client = DriveApi('non-existent-secrets.json', http=http_mock_sequence)
+        comments = test_client.list_comments_for_file(fake_file_id)
+        
+        self.assertEqual(len(comments), 2)
+        self.assertEqual(comments[0]['id'], 'comment-1')
+        self.assertEqual(comments[0]['content'], 'First comment')
+        self.assertEqual(comments[1]['id'], 'comment-2')
+        self.assertEqual(comments[1]['content'], 'Second comment')
+
+    @patch('tubular.google_api.service_account.Credentials.from_service_account_file', return_value=None)
+    def test_list_comments_pagination(self, mock_from_service_account_file):  # pylint: disable=unused-argument
+        """
+        Test listing comments for a file when pagination is required (multiple pages).
+        """
+        fake_file_id = 'fake-file-id'
+        # First page response with nextPageToken
+        first_page_response = json.dumps({
+            'comments': [
+                {
+                    'id': 'comment-1',
+                    'content': 'First comment',
+                    'createdTime': '2026-03-01T10:00:00.000Z'
+                },
+                {
+                    'id': 'comment-2',
+                    'content': 'Second comment',
+                    'createdTime': '2026-03-02T11:00:00.000Z'
+                }
+            ],
+            'nextPageToken': 'token-page-2'
+        }).encode('utf-8')
+        
+        second_page_response = json.dumps({
+            'comments': [
+                {
+                    'id': 'comment-3',
+                    'content': 'Third comment',
+                    'createdTime': '2026-03-03T12:00:00.000Z'
+                }
+            ],
+            'nextPageToken': 'token-page-3'
+        }).encode('utf-8')
+        
+        third_page_response = json.dumps({
+            'comments': [
+                {
+                    'id': 'comment-4',
+                    'content': 'Fourth comment',
+                    'createdTime': '2026-03-04T13:00:00.000Z'
+                }
+            ]
+        }).encode('utf-8')
+        
+        http_mock_sequence = HttpMockSequence([
+            ({'status': '200'}, self.mock_discovery_response_content),
+            ({'status': '200'}, first_page_response),
+            ({'status': '200'}, second_page_response),
+            ({'status': '200'}, third_page_response),
+        ])
+        test_client = DriveApi('non-existent-secrets.json', http=http_mock_sequence)
+        comments = test_client.list_comments_for_file(fake_file_id)
+        
+        # Should have all comments from all pages
+        self.assertEqual(len(comments), 4)
+        self.assertEqual(comments[0]['id'], 'comment-1')
+        self.assertEqual(comments[1]['id'], 'comment-2')
+        self.assertEqual(comments[2]['id'], 'comment-3')
+        self.assertEqual(comments[3]['id'], 'comment-4')
+
+    @patch('tubular.google_api.service_account.Credentials.from_service_account_file', return_value=None)
+    def test_list_comments_file_not_found(self, mock_from_service_account_file):  # pylint: disable=unused-argument
+        """
+        Test listing comments for a non-existent file returns empty list.
+        """
+        fake_file_id = 'non-existent-file-id'
+        error_response = json.dumps({
+            'error': {
+                'code': 404,
+                'message': 'File not found',
+                'errors': [
+                    {
+                        'domain': 'global',
+                        'reason': 'notFound',
+                        'message': 'File not found',
+                    }
+                ]
+            }
+        }).encode('utf-8')
+        
+        http_mock_sequence = HttpMockSequence([
+            ({'status': '200'}, self.mock_discovery_response_content),
+            ({'status': '404'}, error_response),
+        ])
+        test_client = DriveApi('non-existent-secrets.json', http=http_mock_sequence)
+        comments = test_client.list_comments_for_file(fake_file_id)
+        
+        self.assertEqual(comments, [])

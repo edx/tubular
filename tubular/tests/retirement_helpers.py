@@ -84,6 +84,7 @@ def fake_config_file(f, orgs=None, fetch_ecom_segment_id=False, exempted_partner
         },
         'segment_workspace_slug': 'test_slug',
         'segment_auth_token': 'fakeauthtoken',
+        'deletion_warning_days': 7,
     }
 
     if fetch_ecom_segment_id:

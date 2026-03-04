@@ -567,6 +567,57 @@ class DriveApi(BaseApiClient):
 
         return responses
 
+    @backoff.on_exception(
+        backoff.expo,
+        HttpError,
+        max_time=600,  # 10 minutes
+        giveup=lambda e: not _should_retry_google_api(e),
+        on_backoff=lambda details: _backoff_handler(details),  # pylint: disable=unnecessary-lambda
+    )
+    def list_comments_for_file(self, file_id, fields='id, content, createdTime'):
+        """
+        List comments for a file.
+
+        This function may make multiple HTTP requests depending on how many pages the response contains.
+
+        Args:
+            file_id (str): Drive file ID for which to list comments.
+            fields (str): comma separated list of fields to describe each comment resource in the response.
+
+        Returns: list of comment resources (list of dict). The contents of the comment resources are dictated
+            by the `fields` arg.
+
+        Throws:
+            googleapiclient.errors.HttpError:
+                For some non-retryable 4xx or 5xx error. See the full list here:
+                https://developers.google.com/drive/api/v3/handle-errors
+        """
+        try:
+            all_comments = []
+            extra_kwargs = {}
+            
+            while True:
+                response = self._client.comments().list(  # pylint: disable=no-member
+                    fileId=file_id,
+                    fields='nextPageToken, comments({})'.format(fields),
+                    **extra_kwargs
+                ).execute()
+                
+                page_comments = response.get('comments', [])
+                all_comments.extend(page_comments)
+                
+                if 'nextPageToken' in response and response['nextPageToken']:
+                    extra_kwargs['pageToken'] = response['nextPageToken']
+                else:
+                    break
+            
+            return all_comments
+        except HttpError as exc:
+            if exc.resp.status == 404:
+                # File not found or no access
+                return []
+            raise
+
     # NOTE: Do not decorate this function with backoff since it already calls retryable methods.
     def list_permissions_for_files(self, file_ids, fields='emailAddress, role'):
         """
