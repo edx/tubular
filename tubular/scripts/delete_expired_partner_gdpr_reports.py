@@ -4,6 +4,7 @@ Command-line script to delete GDPR partner reports on Google Drive that were cre
 """
 
 
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from dateutil.parser import parse
 from functools import partial
@@ -44,6 +45,7 @@ ERR_NO_SECRETS = -3
 ERR_BAD_SECRETS = -4
 ERR_DELETING_REPORTS = -5
 ERR_BAD_AGE = -6
+ERR_DRIVE_LISTING = -7
 
 
 def _config_or_exit(config_file, google_secrets_file):
@@ -73,6 +75,41 @@ def _config_or_exit(config_file, google_secrets_file):
         FAIL_EXCEPTION(ERR_BAD_SECRETS, 'Failed to read secrets file {}'.format(google_secrets_file), exc)
 
 
+def _config_drive_folder_map_or_exit(config, as_user_account=False):
+    """
+    Lists folders under our top level parent for this environment and returns
+    a dict of {partner name: folder id}. This ensures notifications target
+    the same folder structure that deletion uses.
+    
+    Args:
+        config (dict): Configuration dictionary
+        as_user_account (bool): Whether using OAuth2 user account authentication
+    """
+    drive = DriveApi(config['google_secrets_file'], as_user_account=as_user_account)
+
+    try:
+        LOG('Attempting to find all partner sub-directories on Drive.')
+        folders = drive.walk_files(
+            config['drive_partners_folder'],
+            mimetype='application/vnd.google-apps.folder',
+            recurse=False
+        )
+    except Exception as exc:  # pylint: disable=broad-except
+        FAIL_EXCEPTION(ERR_DRIVE_LISTING, 'Finding partner directories on Drive failed.', exc)
+
+    if not folders:
+        FAIL(ERR_DRIVE_LISTING, 'Finding partner directories on Drive failed. Check your permissions.')
+
+    config['partner_folder_mapping'] = OrderedDict()
+    for folder in folders:
+        config['partner_folder_mapping'][folder['name']] = folder['id']
+    
+    LOG('Found {} partner folder(s): {}'.format(
+        len(config['partner_folder_mapping']),
+        ', '.join(config['partner_folder_mapping'].keys())
+    ))
+
+
 def _get_external_emails_for_partners(drive, config):
     """
     Extract external email addresses from partner folder permissions.
@@ -84,11 +121,7 @@ def _get_external_emails_for_partners(drive, config):
     Returns:
         dict: Mapping of partner names to lists of external email addresses (denied domains filtered out).
     """
-    partners = list(config.get('partner_folder_mapping', {}).keys())
-    
-    if not partners:
-        LOG('No partner_folder_mapping found in config')
-        return {}
+    partners = list(config['partner_folder_mapping'].keys())
     
     folder_ids = {config['partner_folder_mapping'][partner] for partner in partners}
     
@@ -137,10 +170,10 @@ def _send_deletion_notifications(config, age_in_days, as_user_account, mimetype=
         
         external_emails = _get_external_emails_for_partners(drive, config)
         
-        platform_name = config.get('partner_report_platform_name', '')
+        platform_name = config['partner_report_platform_name']
         file_prefix = '{}_{}'.format(REPORTING_FILENAME_PREFIX, platform_name)
         
-        for partner in config.get('partner_folder_mapping', {}).keys():
+        for partner in config['partner_folder_mapping'].keys():
             folder_id = config['partner_folder_mapping'][partner]
             
             # Skip if no external POC (unless exempt)
@@ -156,6 +189,8 @@ def _send_deletion_notifications(config, age_in_days, as_user_account, mimetype=
                     mimetype=mimetype,
                     recurse=False
                 )
+                
+                files_to_notify = []
                 
                 for file in files:
                     file_created = parse(file['createdTime'])
@@ -173,8 +208,12 @@ def _send_deletion_notifications(config, age_in_days, as_user_account, mimetype=
                             filename=file_name
                         )
                         
-                        drive.create_comments_for_files([(file_id, comment_content)])
-                        LOG('Sent deletion notification for file: {}'.format(file_name))
+                        files_to_notify.append((file_id, comment_content))
+                        LOG('File marked for deletion notification: {}'.format(file_name))
+                
+                if files_to_notify:
+                    drive.create_comments_for_files(files_to_notify)
+                    LOG('Sent {} deletion notification(s) for partner "{}"'.format(len(files_to_notify), partner))
                         
             except Exception as exc:  # pylint: disable=broad-except
                 LOG('WARNING: Error checking files for partner "{}": {}'.format(partner, exc))
@@ -228,6 +267,8 @@ def delete_expired_reports(
         FAIL(ERR_BAD_AGE, 'age_in_days must be a positive integer.')
 
     config = _config_or_exit(config_file, google_secrets_file)
+    
+    _config_drive_folder_map_or_exit(config, as_user_account)
 
     try:
         LOG('Sending deletion notifications to users...')
