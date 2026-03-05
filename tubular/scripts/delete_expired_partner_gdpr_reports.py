@@ -13,8 +13,10 @@ import io
 import json
 import logging
 import sys
+import unicodedata
 
 import click
+from six import text_type
 import yaml
 from pytz import UTC
 
@@ -77,12 +79,12 @@ def _config_or_exit(config_file, google_secrets_file):
 
 def _config_drive_folder_map_or_exit(config, as_user_account=False):
     """
-    Lists folders under our top level parent for this environment and returns
-    a dict of {partner name: folder id}. This ensures notifications target
-    the same folder structure that deletion uses.
+    Lists folders under our top level parent for this environment and populates
+    config['partner_folder_mapping'] with {partner name: folder id}. This ensures 
+    notifications target the same folder structure that deletion uses.
     
     Args:
-        config (dict): Configuration dictionary
+        config (dict): Configuration dictionary to mutate
         as_user_account (bool): Whether using OAuth2 user account authentication
     """
     drive = DriveApi(config['google_secrets_file'], as_user_account=as_user_account)
@@ -102,6 +104,7 @@ def _config_drive_folder_map_or_exit(config, as_user_account=False):
 
     config['partner_folder_mapping'] = OrderedDict()
     for folder in folders:
+        folder['name'] = unicodedata.normalize('NFKC', text_type(folder['name']))
         config['partner_folder_mapping'][folder['name']] = folder['id']
     
     LOG('Found {} partner folder(s): {}'.format(
@@ -131,7 +134,7 @@ def _get_external_emails_for_partners(drive, config):
     )
     
     permissions = {
-        partner: partner_folders_to_permissions[config['partner_folder_mapping'][partner]]
+        partner: partner_folders_to_permissions.get(config['partner_folder_mapping'][partner]) or []
         for partner in partners
     }
     

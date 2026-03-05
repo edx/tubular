@@ -375,18 +375,28 @@ def test_notifications_sent_for_old_files(*args):
 @patch('tubular.google_api.DriveApi.list_permissions_for_files')
 @patch('tubular.google_api.DriveApi.create_comments_for_files')
 @patch('tubular.google_api.DriveApi.delete_files_older_than')
+@patch('tubular.scripts.delete_expired_partner_gdpr_reports.datetime')
 def test_notifications_not_sent_for_recent_files(*args):
     """
     Test that notifications are NOT sent for files newer than the cutoff.
     """
-    mock_delete_old_reports = args[0]
-    mock_create_comments = args[1]
-    mock_list_permissions = args[2]
-    mock_walk_files = args[3]
-    mock_driveapi = args[4]
+    mock_datetime = args[0]
+    mock_delete_old_reports = args[1]
+    mock_create_comments = args[2]
+    mock_list_permissions = args[3]
+    mock_walk_files = args[4]
+    mock_driveapi = args[5]
+
+    # Freeze time to March 5, 2026 12:00:00 UTC for deterministic testing
+    from datetime import datetime
+    from pytz import UTC
+    fixed_now = datetime(2026, 3, 5, 12, 0, 0, tzinfo=UTC)
+    mock_datetime.now.return_value = fixed_now
+    # Allow timedelta to work normally
+    mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
 
     file_prefix = '{}_{}'.format(REPORTING_FILENAME_PREFIX, TEST_PLATFORM_NAME)
-    recent_date = '2026-03-04T00:00:00.000000+00:00'  # Yesterday (test date is March 5, 2026)
+    recent_date = '2026-03-04T00:00:00.000000+00:00'  # 1 day old (too recent for 30-day cutoff)
     
     # Mock partner folders discovery
     mock_walk_files.side_effect = [
