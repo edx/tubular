@@ -423,7 +423,8 @@ class GitHubAPI:
         results.update({
             suite['app']['name']: (
                 # Use status field when conclusion is None, default to 'pending' if both are None
-                (suite.get('conclusion') or suite.get('status') or 'pending').lower(),
+                (suite.get('conclusion') if suite.get('conclusion') is not None 
+                 else (suite.get('status') if suite.get('status') is not None else 'pending')).lower(),
                 suite['url']
             )
             for suite in check_suites['check_suites']
@@ -435,7 +436,8 @@ class GitHubAPI:
         results.update({
             suite['name']: (
                 # Use status field when conclusion is None, default to 'pending' if both are None
-                (suite.get('conclusion') or suite.get('status') or 'pending').lower(),
+                (suite.get('conclusion') if suite.get('conclusion') is not None 
+                 else (suite.get('status') if suite.get('status') is not None else 'pending')).lower(),
                 suite['url']
             )
             for suite in check_runs['check_runs']
