@@ -236,7 +236,7 @@ class GitHubApiTestCase(TestCase):
         ('123', list(range(10)), 10, 'pending', False, False, True),
         ('123', list(range(10)), 8, 'failure', False, False, False),
         ('123', [], 0, None, False, False, False),
-        # Test new in-progress states are treated as pending by aggregate_validation_results
+        # Test in-progress states are treated as pending by aggregate_validation_results
         ('123', list(range(10)), 8, 'in_progress', False, False, False),
         ('123', list(range(10)), 8, 'queued', False, False, False),
         ('123', list(range(10)), 8, 'waiting', False, False, False),
@@ -352,10 +352,7 @@ class GitHubApiTestCase(TestCase):
         self.api.all_checks = False
         successful, statuses = self.api.check_combined_status_commit(sha)
 
-        # Verify status field was read (point 1) - status value should appear in the results
-        # The statuses dict has values like "url state", so check if status_value is in any value
         assert any(status_value.lower() in value.lower() for value in statuses.values())
-        # Verify aggregate treats it as pending (point 2)
         assert successful is False
 
     @ddt.data(
