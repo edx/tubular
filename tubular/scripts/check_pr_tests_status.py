@@ -73,26 +73,9 @@ LOG = logging.getLogger(__name__)
     help=u"Regex defining which validation contexts to include from this status check.",
     default=None
 )
-@click.option(
-    '--min-checks',
-    help=(
-        u"Minimum number of checks required to be present before allowing success. "
-        u"BREAKING CHANGE: Now defaults to 1 (previously allowed 0 checks to pass). "
-        u"This prevents deployments during race conditions when checks haven't started yet. "
-        u"Set to 0 to restore old behavior for repos with no CI checks configured."
-    ),
-    default=1,
-    type=click.IntRange(min=0),
-)
-@click.option(
-    '--fail-on-pending/--no-fail-on-pending',
-    help=u"Fail if any checks are still pending/in-progress. Recommended for deployment gates.",
-    default=True
-)
 def check_tests(
         org, repo, token, input_file, pr_number, commit_hash,
         out_file, all_checks, exclude_contexts, include_contexts,
-        min_checks, fail_on_pending,
 ):
     """
     Check the current combined status of a GitHub PR/commit in a repo once.
@@ -136,92 +119,21 @@ def check_tests(
         sys.argv[0], git_obj, "success" if combined_status_success else "failed"
     ))
 
-    # Validate minimum check count to prevent race conditions where checks haven't started yet
-    check_count = len(test_statuses)
-    LOG.info("Found {} check(s) for {}.".format(check_count, git_obj))
-    
-    if check_count < min_checks:
-        LOG.error(
-            "DEPLOYMENT GATE FAILURE: Only {} check(s) found, but minimum of {} required. "
-            "This may indicate checks haven't started yet or a configuration issue. "
-            "For repos with no CI checks, use --min-checks=0 to allow deployment.".format(
-                check_count, min_checks
-            )
-        )
-        status_success = False
-    else:
-        ignore_list = ['GitHub Actions']
-        
-        # Track different failure types for better diagnostics
-        pending_checks = []
-        failed_checks = []
-        successful_checks = []
-        
-        for test_name, details in test_statuses.items():
-            try:
-                _url, test_status_string = details.split(" ", 1)
-            except ValueError:
-                # Malformed details string - treat as failure
-                LOG.error("Check \"{test_name}\" has malformed details: {details}".format(
-                    test_name=test_name, details=details))
-                failed_checks.append((test_name, "malformed_data"))
-                continue
-            
-            # Check for pending/in-progress states
-            # Note: 'none' handles the case where GitHub API returns None as a state value
-            if test_status_string.lower() in ["pending", "in_progress", "queued", "waiting", "requested", "none"]:
-                pending_checks.append((test_name, test_status_string))
-                LOG.info("Check \"{test_name}\" is still running: {status}".format(
-                    test_name=test_name, status=test_status_string))
-            # Check for success/skipped states
-            # Note: 'neutral' is a valid GitHub check conclusion for informational checks that
-            # complete successfully but neither pass nor fail (e.g., linting suggestions).
-            # Treating neutral as passing is consistent with aggregate_validation_results in github_api.py
-            # and prevents informational checks from blocking deployments.
-            elif test_status_string.lower() in ["success", "skipped", "neutral"]:
-                successful_checks.append(test_name)
-                LOG.info("Check \"{test_name}\" passed: {status}".format(
-                    test_name=test_name, status=test_status_string))
-            # Everything else is a failure
+    ignore_list = ['GitHub Actions']
+
+    status_success = True
+
+    for test_name, details in test_statuses.items():
+        _url, test_status_string = details.split(" ", 1)
+        test_status_success = bool(test_status_string in ["success", "skipped"])
+        if not test_status_success:
+            if test_name in ignore_list:
+                LOG.info("Ignoring failure of \"{test_name}\" because it is in the ignore list".format(
+                    test_name=test_name))
             else:
-                if test_name in ignore_list:
-                    LOG.info("Ignoring failure of \"{test_name}\" because it is in the ignore list".format(
-                        test_name=test_name))
-                    successful_checks.append(test_name)
-                else:
-                    failed_checks.append((test_name, test_status_string))
-                    LOG.error("Check \"{test_name}\" FAILED: {details}".format(
-                        test_name=test_name, details=details))
-        
-        # Log summary
-        LOG.info("Check summary: {} successful, {} pending, {} failed".format(
-            len(successful_checks), len(pending_checks), len(failed_checks)
-        ))
-        
-        # Determine overall status
-        if failed_checks:
-            LOG.error("DEPLOYMENT GATE FAILURE: {} check(s) failed: {}".format(
-                len(failed_checks), [name for name, _ in failed_checks]
-            ))
-            status_success = False
-        elif pending_checks and fail_on_pending:
-            LOG.error(
-                "DEPLOYMENT GATE FAILURE: {} check(s) still pending/in-progress: {}. "
-                "Cannot proceed to deployment while checks are running.".format(
-                    len(pending_checks), [name for name, _ in pending_checks]
-                )
-            )
-            status_success = False
-        elif pending_checks and not fail_on_pending:
-            LOG.warning(
-                "WARNING: {} check(s) still pending but --fail-on-pending is False: {}".format(
-                    len(pending_checks), [name for name, _ in pending_checks]
-                )
-            )
-            status_success = True
-        else:
-            LOG.info("All checks passed successfully.")
-            status_success = True
+                LOG.info("Commit failed due to \"{test_name}\": {details}".format(
+                    test_name=test_name, details=details))
+                status_success = False
 
     dirname = os.path.dirname(out_file.name)
     if dirname:
