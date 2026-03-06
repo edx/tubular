@@ -422,7 +422,8 @@ class GitHubAPI:
         check_suites = self.get_commit_check_suites(commit)
         results.update({
             suite['app']['name']: (
-                suite.get('conclusion').lower() if suite.get('conclusion') is not None else 'pending',
+                # Use status field when conclusion is None (check still running)
+                suite.get('status').lower() if suite.get('conclusion') is None else suite.get('conclusion').lower(),
                 suite['url']
             )
             for suite in check_suites['check_suites']
@@ -433,7 +434,8 @@ class GitHubAPI:
         check_runs = self.get_commit_check_runs(commit)
         results.update({
             suite['name']: (
-                suite.get('conclusion').lower() if suite.get('conclusion') is not None else 'pending',
+                # Use status field when conclusion is None (check still running)
+                suite.get('status').lower() if suite.get('conclusion') is None else suite.get('conclusion').lower(),
                 suite['url']
             )
             for suite in check_runs['check_runs']
