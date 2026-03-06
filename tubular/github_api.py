@@ -483,9 +483,9 @@ class GitHubAPI:
         """
         Aggregate validation results. Returns 'success' if all validations
         are 'success' or 'neutral', 'pending' if any validations are 'pending',
-        or 'failure' otherwise.
+        'in_progress', 'queued', 'waiting', or 'requested', or 'failure' otherwise.
         """
-        if any(state in ('pending', None) for (state, url) in results.values()):
+        if any(state in ('pending', 'in_progress', 'queued', 'waiting', 'requested', None) for (state, url) in results.values()):
             return 'pending'
         if all(state in ('success', 'neutral', 'skipped') for (state, url) in results.values()):
             return 'success'
