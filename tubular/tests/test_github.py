@@ -235,7 +235,12 @@ class GitHubApiTestCase(TestCase):
         ('123', list(range(10)), 8, 'pending', False, False, False),
         ('123', list(range(10)), 10, 'pending', False, False, True),
         ('123', list(range(10)), 8, 'failure', False, False, False),
-        ('123', [], 0, None, False, False, False)
+        ('123', [], 0, None, False, False, False),
+        # Test in-progress states are treated as pending by aggregate_validation_results
+        ('123', list(range(10)), 8, 'in_progress', False, False, False),
+        ('123', list(range(10)), 8, 'queued', False, False, False),
+        ('123', list(range(10)), 8, 'waiting', False, False, False),
+        ('123', list(range(10)), 8, 'requested', False, False, False),
     )
     @ddt.unpack
     def test_check_combined_status_commit(
@@ -301,6 +306,54 @@ class GitHubApiTestCase(TestCase):
         assert len(statuses) == statuses_returned
         commit_mock.get_combined_status.assert_called()
         self.repo_mock.get_commit.assert_called_with(sha)
+
+    @ddt.data(
+        ('in_progress',),
+        ('queued',),
+        ('waiting',),
+        ('requested',),
+    )
+    @ddt.unpack
+    def test_status_field_fallback_and_aggregate_pending(self, status_value):
+        """
+        Test two things:
+        1. When conclusion is None, the status field is read from check suite/run
+        2. in_progress/queued/waiting/requested states are treated as pending by aggregate
+        """
+        sha = '123'
+        
+        mock_combined_status = Mock(spec=CommitCombinedStatus)
+        mock_combined_status.statuses = []
+        mock_combined_status.state = None
+        mock_combined_status.url = None
+
+        commit_mock = Mock(spec=Commit, url="some.fake.repo/")
+        commit_mock.get_combined_status.return_value = mock_combined_status
+        self.repo_mock.get_commit.return_value = commit_mock
+
+        self.api.get_branch_protection_rules = Mock(return_value=['TestApp'])
+
+        commit_mock._requester = Mock()  # pylint: disable=protected-access
+        commit_mock._requester.requestJsonAndCheck.return_value = (  # pylint: disable=protected-access
+            {},
+            {
+                'check_suites': [
+                    {
+                        'app': {'name': 'TestApp'},
+                        'conclusion': None,
+                        'status': status_value,
+                        'url': 'some.fake.repo'
+                    }
+                ],
+                'check_runs': []
+            },
+        )
+
+        self.api.all_checks = False
+        successful, statuses = self.api.check_combined_status_commit(sha)
+
+        assert any(status_value.lower() in value.lower() for value in statuses.values())
+        assert successful is False
 
     @ddt.data(
         ('', 'success', None),  # Case where no actions are found
