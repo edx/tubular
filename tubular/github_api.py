@@ -422,8 +422,7 @@ class GitHubAPI:
         check_suites = self.get_commit_check_suites(commit)
         results.update({
             suite['app']['name']: (
-                # Use status field when conclusion is None, default to 'pending' if both are None
-                (suite.get('conclusion') or suite.get('status') or 'pending').lower(),
+                suite.get('conclusion').lower() if suite.get('conclusion') is not None else 'pending',
                 suite['url']
             )
             for suite in check_suites['check_suites']
@@ -434,8 +433,7 @@ class GitHubAPI:
         check_runs = self.get_commit_check_runs(commit)
         results.update({
             suite['name']: (
-                # Use status field when conclusion is None, default to 'pending' if both are None
-                (suite.get('conclusion') or suite.get('status') or 'pending').lower(),
+                suite.get('conclusion').lower() if suite.get('conclusion') is not None else 'pending',
                 suite['url']
             )
             for suite in check_runs['check_runs']
@@ -485,9 +483,9 @@ class GitHubAPI:
         """
         Aggregate validation results. Returns 'success' if all validations
         are 'success' or 'neutral', 'pending' if any validations are 'pending',
-        'in_progress', 'queued', 'waiting', or 'requested', or 'failure' otherwise.
+        or 'failure' otherwise.
         """
-        if any(state in ('pending', 'in_progress', 'queued', 'waiting', 'requested', None) for (state, url) in results.values()):
+        if any(state in ('pending', None) for (state, url) in results.values()):
             return 'pending'
         if all(state in ('success', 'neutral', 'skipped') for (state, url) in results.values()):
             return 'success'
