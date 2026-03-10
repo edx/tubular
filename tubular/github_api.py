@@ -421,12 +421,12 @@ class GitHubAPI:
 
         check_suites = self.get_commit_check_suites(commit)
         results.update({
-            suite['app']['name']: (
+            suite.get('name', suite['app']['name']): (
                 suite.get('conclusion').lower() if suite.get('conclusion') is not None else 'pending',
                 suite['url']
             )
             for suite in check_suites['check_suites']
-            if self.all_checks
+            if self.all_checks or suite.get('name') in required_checks
         })
 
         # get more results from commit check runs
