@@ -421,12 +421,12 @@ class GitHubAPI:
 
         check_suites = self.get_commit_check_suites(commit)
         results.update({
-            suite.get('name', suite['app']['name']): (
+            suite['app']['name']: (
                 suite.get('conclusion').lower() if suite.get('conclusion') is not None else 'pending',
                 suite['url']
             )
             for suite in check_suites['check_suites']
-            if self.all_checks or suite.get('name') in required_checks
+            if self.all_checks
         })
 
         # get more results from commit check runs
@@ -439,6 +439,13 @@ class GitHubAPI:
             for suite in check_runs['check_runs']
             if self.all_checks or suite['name'] in required_checks
         })
+
+        # Ensure all required checks are present. If a required check hasn't been created yet,
+        # treat it as pending to block deployment.
+        if not self.all_checks:
+            for required_check in required_checks:
+                if required_check not in results:
+                    results[required_check] = ('pending', None)
 
         return results
 
