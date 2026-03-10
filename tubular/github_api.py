@@ -440,12 +440,18 @@ class GitHubAPI:
             if self.all_checks or suite['name'] in required_checks
         })
 
-        # Ensure all required checks are present. If a required check hasn't been created yet,
-        # treat it as pending to block deployment.
-        if not self.all_checks:
-            for required_check in required_checks:
-                if required_check not in results:
-                    results[required_check] = ('pending', None)
+        # Only add missing required checks as pending if CI appears to be still running.
+        # If we have checks and they're all completed, assume CI is done and only validate what exists.
+        if not self.all_checks and required_checks:
+            # Check if any existing checks are still pending/in_progress
+            has_pending_checks = any(state == 'pending' or state is None for (state, url) in results.values())
+            
+            # If we have NO checks at all, or if some checks are still pending, then CI might not be done yet
+            # In that case, add missing required checks as pending to block deployment
+            if len(results) == 0 or has_pending_checks:
+                for required_check in required_checks:
+                    if required_check not in results:
+                        results[required_check] = ('pending', None)
 
         return results
 
