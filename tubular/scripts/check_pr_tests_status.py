@@ -59,9 +59,10 @@ LOG = logging.getLogger(__name__)
     default=sys.stdout
 )
 @click.option(
-    '--all-checks/--required-checks-only',
-    help="Check all validation contexts, or only required ones.",
-    default=True
+    '--all-checks',
+    help="Check all validation contexts, whehther it is required or not",
+    is_flag=True,
+    default=False
 )
 @click.option(
     '--exclude-contexts',
