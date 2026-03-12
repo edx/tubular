@@ -432,7 +432,7 @@ class GitHubAPI:
                 suite['url']
             )
             for suite in check_suites['check_suites']
-            if self.all_checks
+            if self.all_checks or suite['app']['name'] in required_checks
         })
 
         # get more results from commit check runs
