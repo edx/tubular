@@ -410,6 +410,12 @@ class GitHubAPI:
         required_checks = self.get_branch_protection_rules()
 
         results = {}
+
+        # The Commit Status API (combined_status) is the legacy API and only includes
+        # statuses created via the status API. Modern GitHub Actions workflows and their
+        # individual jobs appear as Check Runs, not statuses. Since branch protection
+        # rules can require specific Check Run names (like "Unit tests successful"),
+        # we must use the Check Runs API - we cannot rely solely on the Status API.
         combined_status = self.get_commit_combined_statuses(commit)
         results.update({
             status.context: (
@@ -439,6 +445,13 @@ class GitHubAPI:
             for suite in check_runs['check_runs']
             if self.all_checks or suite['name'] in required_checks
         })
+
+        # If a required check is missing from the results, add it as pending to block deployment.
+        # This ensures we wait for ALL required checks to be created and pass.
+        if not self.all_checks and required_checks:
+            for required_check in required_checks:
+                if required_check not in results:
+                    results[required_check] = ('pending', None)
 
         return results
 
