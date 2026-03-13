@@ -410,7 +410,6 @@ class GitHubAPI:
         required_checks = self.get_branch_protection_rules()
 
         results = {}
-
         combined_status = self.get_commit_combined_statuses(commit)
         results.update({
             status.context: (
