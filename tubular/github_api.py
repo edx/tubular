@@ -411,11 +411,6 @@ class GitHubAPI:
 
         results = {}
 
-        # The Commit Status API (combined_status) is the legacy API and only includes
-        # statuses created via the status API. Modern GitHub Actions workflows and their
-        # individual jobs appear as Check Runs, not statuses. Since branch protection
-        # rules can require specific Check Run names (like "Unit tests successful"),
-        # we must use the Check Runs API - we cannot rely solely on the Status API.
         combined_status = self.get_commit_combined_statuses(commit)
         results.update({
             status.context: (
