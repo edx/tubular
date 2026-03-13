@@ -440,6 +440,13 @@ class GitHubAPI:
             if self.all_checks or suite['name'] in required_checks
         })
 
+        # If a required check is missing from the results, add it as pending to block deployment.
+        # This ensures we wait for ALL required checks to be created and pass.
+        if not self.all_checks and required_checks:
+            for required_check in required_checks:
+                if required_check not in results:
+                    results[required_check] = ('pending', None)
+
         return results
 
     @backoff.on_exception(backoff.expo, (RateLimitExceededException, socket.timeout), max_tries=7,
