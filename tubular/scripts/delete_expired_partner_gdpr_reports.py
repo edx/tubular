@@ -90,8 +90,18 @@ def _config_or_exit(config_file, google_secrets_file):
     ),
     show_default=True,
 )
+@click.option(
+    '--mimetype',
+    default=None,
+    help='MIME type of files to delete (optional). If not specified, files of all types will be deleted.'
+)
+@click.option(
+    '--prefix',
+    default=None,
+    help='Prefix filter for files to delete. If not specified, uses "{REPORTING_FILENAME_PREFIX}_{partner_report_platform_name}".'
+)
 def delete_expired_reports(
-    config_file, google_secrets_file, age_in_days, as_user_account
+    config_file, google_secrets_file, age_in_days, as_user_account, mimetype, prefix
 ):
     """
     Performs the partner report deletion as needed.
@@ -117,11 +127,18 @@ def delete_expired_reports(
             config['google_secrets_file'], as_user_account=as_user_account
         )
         LOG('DriveApi configured')
+
+        # Use provided prefix or default to the configured pattern
+        # Treat empty string same as None (use default)
+        file_prefix = prefix if prefix else "{}_{}".format(
+            REPORTING_FILENAME_PREFIX, config['partner_report_platform_name']
+        )
+
         drive.delete_files_older_than(
             config['drive_partners_folder'],
             delete_before_dt,
-            mimetype='text/csv',
-            prefix="{}_{}".format(REPORTING_FILENAME_PREFIX, config['partner_report_platform_name'])
+            mimetype=mimetype,
+            prefix=file_prefix
         )
         LOG('Partner report deletion complete')
     except Exception as exc:  # pylint: disable=broad-except

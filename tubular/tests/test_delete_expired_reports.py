@@ -25,7 +25,7 @@ TEST_CONFIG_FILENAME = 'test_config.yml'
 TEST_GOOGLE_SECRETS_FILENAME = 'test_google_secrets.json'
 
 
-def _call_script(age_in_days=1, expect_success=True):
+def _call_script(age_in_days=1, mimetype='text/csv', prefix=None, expect_success=True):
     """
     Call the report deletion script with a generic, temporary config file.
     Returns the CliRunner.invoke results
@@ -37,16 +37,24 @@ def _call_script(age_in_days=1, expect_success=True):
         with open(TEST_GOOGLE_SECRETS_FILENAME, 'w') as secrets_f:
             fake_google_secrets_file(secrets_f)
 
+        args = [
+            '--config_file',
+            TEST_CONFIG_FILENAME,
+            '--google_secrets_file',
+            TEST_GOOGLE_SECRETS_FILENAME,
+            '--age_in_days',
+            age_in_days
+        ]
+        
+        if mimetype is not None:
+            args.extend(['--mimetype', mimetype])
+        
+        if prefix is not None:
+            args.extend(['--prefix', prefix])
+
         result = runner.invoke(
             delete_expired_reports,
-            args=[
-                '--config_file',
-                TEST_CONFIG_FILENAME,
-                '--google_secrets_file',
-                TEST_GOOGLE_SECRETS_FILENAME,
-                '--age_in_days',
-                age_in_days
-            ]
+            args=args
         )
 
         print(result)
