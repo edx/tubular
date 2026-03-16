@@ -127,13 +127,13 @@ def delete_expired_reports(
             config['google_secrets_file'], as_user_account=as_user_account
         )
         LOG('DriveApi configured')
-        
+
         # Use provided prefix or default to the configured pattern
         # Treat empty string same as None (use default)
         file_prefix = prefix if prefix else "{}_{}".format(
             REPORTING_FILENAME_PREFIX, config['partner_report_platform_name']
         )
-        
+
         drive.delete_files_older_than(
             config['drive_partners_folder'],
             delete_before_dt,
