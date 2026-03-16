@@ -46,10 +46,10 @@ def _call_script(age_in_days=1, mimetype='text/csv', prefix=None, expect_success
             age_in_days
         ]
         
-        if mimetype:
+        if mimetype is not None:
             args.extend(['--mimetype', mimetype])
         
-        if prefix:
+        if prefix is not None:
             args.extend(['--prefix', prefix])
 
         result = runner.invoke(
