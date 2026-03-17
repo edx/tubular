@@ -92,7 +92,7 @@ def _config_or_exit(config_file, google_secrets_file):
 )
 @click.option(
     '--enable_delete_notification',
-    type=bool,
+    type=click.BOOL,
     default=False,
     help='Enable logging of delete notifications for GDPR partner reports.',
     show_default=True,
