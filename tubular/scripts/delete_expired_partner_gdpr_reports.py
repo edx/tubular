@@ -90,8 +90,19 @@ def _config_or_exit(config_file, google_secrets_file):
     ),
     show_default=True,
 )
+@click.option(
+    '--enable_delete_notification',
+    type=click.BOOL,
+    default=False,
+    help=(
+        'Feature flag to enable deletion notifications for GDPR partner reports. '
+        'Currently logs intent only; future implementation will send actual notifications. '
+        'See BOMS-398 for details.'
+    ),
+    show_default=True,
+)
 def delete_expired_reports(
-    config_file, google_secrets_file, age_in_days, as_user_account
+    config_file, google_secrets_file, age_in_days, as_user_account, enable_delete_notification
 ):
     """
     Performs the partner report deletion as needed.
@@ -99,6 +110,11 @@ def delete_expired_reports(
     LOG('Starting partner report deletion using config file "{}", Google config "{}", and {} days back'.format(
         config_file, google_secrets_file, age_in_days
     ))
+
+    if enable_delete_notification:
+        LOG('Delete notification enabled - would send notifications for deleted reports')
+    else:
+        LOG('Delete notification disabled')
 
     if not config_file:
         FAIL(ERR_NO_CONFIG, 'No config file passed in.')
