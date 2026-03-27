@@ -94,7 +94,11 @@ def _config_or_exit(config_file, google_secrets_file):
     '--enable_delete_notification',
     type=click.BOOL,
     default=False,
-    help='Enable logging of delete notifications for GDPR partner reports.',
+    help=(
+        'Feature flag to enable deletion notifications for GDPR partner reports. '
+        'Currently logs intent only; future implementation will send actual notifications. '
+        'See BOMS-398 for details.'
+    ),
     show_default=True,
 )
 def delete_expired_reports(
