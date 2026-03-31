@@ -442,39 +442,60 @@ def _check_and_warn_about_expiring_files(config):
                     mimetype='text/csv',
                     recurse=False
                 )
-                
+
+                pending_comments = []
+
                 for file_info in files:
                     filename = file_info.get('name', '')
-                    
+
                     if not filename.startswith(file_prefix):
                         continue
-                    
+
                     created_time_str = file_info.get('createdTime')
                     if not created_time_str:
                         LOG('WARNING: File {} has no creation time, skipping'.format(filename))
                         continue
-                    
+
                     file_created = parse(created_time_str)
                     if file_created.tzinfo is None:
                         file_created = file_created.replace(tzinfo=UTC)
-                    
+                    else:
+                        file_created = file_created.astimezone(UTC)
+
                     if file_created <= warning_threshold:
                         file_id = file_info.get('id')
-                        
+
                         # Check for filename in existing comments (stable even if message wording changes)
                         existing_comments = drive.list_comments_for_file(file_id, fields='content')
                         has_warning = any(
                             filename in comment.get('content', '')
                             for comment in existing_comments
                         )
-                        
+
                         if has_warning:
                             LOG('File {} already has deletion warning, skipping'.format(filename))
                             continue
-                        
-                        days_until_deletion = retention_days - (now - file_created).days
-                        deletion_date = (file_created + timedelta(days=retention_days)).strftime('%Y-%m-%d')
-                        
+
+                        deletion_datetime = file_created + timedelta(days=retention_days)
+                        # Use total_seconds-based math to avoid .days flooring off-by-one
+                        seconds_until_deletion = (deletion_datetime - now).total_seconds()
+                        days_until_deletion = int(seconds_until_deletion / 86400)
+
+                        if days_until_deletion <= 0:
+                            LOG('WARNING: File {} is already past its retention period, skipping warning'.format(filename))
+                            continue
+
+                        if days_until_deletion > warning_days:
+                            # File is older than warning_threshold but not yet in the warning window;
+                            # this shouldn't normally happen but guard against clock skew or config changes.
+                            LOG('File {} has {} days until deletion, outside warning window, skipping'.format(
+                                filename, days_until_deletion
+                            ))
+                            continue
+
+                        # deletion_datetime is already UTC; format as a UTC date
+                        deletion_date = deletion_datetime.strftime('%Y-%m-%d')
+
                         tag_string = ' '.join('+' + email for email in external_emails[partner])
                         comment_content = DELETION_WARNING_MESSAGE_TEMPLATE.format(
                             tags=tag_string,
@@ -482,12 +503,15 @@ def _check_and_warn_about_expiring_files(config):
                             days_until_deletion=days_until_deletion,
                             deletion_date=deletion_date
                         )
-                        
-                        drive.create_comments_for_files([(file_id, comment_content)])
-                        LOG('Sent deletion warning for file: {} ({} days until deletion)'.format(
+                        pending_comments.append((file_id, comment_content))
+                        LOG('Queuing deletion warning for file: {} ({} days until deletion)'.format(
                             filename, days_until_deletion
                         ))
-                        
+
+                if pending_comments:
+                    drive.create_comments_for_files(pending_comments)
+                    LOG('Sent {} deletion warning(s) for partner "{}"'.format(len(pending_comments), partner))
+
             except Exception as exc:  # pylint: disable=broad-except
                 LOG('WARNING: Error checking files for partner "{}": {}'.format(partner, exc))
                 
