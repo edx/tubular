@@ -538,11 +538,6 @@ def _check_and_warn_about_expiring_files(config):
     help='Do or skip adding notification comments to the reports.'
 )
 @click.option(
-    '--check_expiring_files/--no_check_expiring_files',
-    default=True,
-    help='Do or skip checking for files approaching deletion and sending warnings.'
-)
-@click.option(
     '--age_in_days',
     type=int,
     default=None,
@@ -554,7 +549,17 @@ def _check_and_warn_about_expiring_files(config):
     default=None,
     help='Number of days before deletion to send warning notification (overrides config file value).'
 )
-def generate_report(config_file, google_secrets_file, output_dir, comments, check_expiring_files, age_in_days, deletion_warning_days):
+@click.option(
+    '--enable_check_expiring_files',
+    type=click.BOOL,
+    default=False,
+    help=(
+        'Enable expiring file checks and deletion warning notifications for GDPR partner reports. '
+        'If set to true, the script will identify files nearing deletion and notify partners. '
+    ),
+    show_default=True,
+)
+def generate_report(config_file, google_secrets_file, output_dir, comments, age_in_days, deletion_warning_days, enable_check_expiring_files):
     """
     Retrieves a JWT token as the retirement service learner, then performs the reporting process as that user.
 
@@ -590,7 +595,7 @@ def generate_report(config_file, google_secrets_file, output_dir, comments, chec
         _config_drive_folder_map_or_exit(config)
         
         # Check for expiring files and send warnings if enabled
-        if check_expiring_files:
+        if enable_check_expiring_files:
             _check_and_warn_about_expiring_files(config)
         
         report_data, all_usernames = _get_orgs_and_learners_or_exit(config)
