@@ -255,8 +255,7 @@ def _send_deletion_notifications(config, age_in_days, as_user_account, mimetype=
     default=False,
     help=(
         'Feature flag to enable deletion notifications for GDPR partner reports. '
-        'Currently logs intent only; future implementation will send actual notifications. '
-        'See BOMS-398 for details.'
+        'When enabled, sends notifications to partners before files are deleted. '
     ),
     show_default=True,
 )
@@ -270,11 +269,6 @@ def delete_expired_reports(
     LOG('Starting partner report deletion using config file "{}", Google config "{}", and {} days back'.format(
         config_file, google_secrets_file, age_in_days
     ))
-
-    if enable_delete_notification:
-        LOG('Delete notification enabled - would send notifications for deleted reports')
-    else:
-        LOG('Delete notification disabled')
 
     if not config_file:
         FAIL(ERR_NO_CONFIG, 'No config file passed in.')
@@ -290,9 +284,12 @@ def delete_expired_reports(
     _config_drive_folder_map_or_exit(config, as_user_account)
 
     try:
-        LOG('Sending deletion notifications to users...')
-        _send_deletion_notifications(config, age_in_days, as_user_account, mimetype='text/csv')
-        
+        if enable_delete_notification:
+            LOG('Delete notification enabled - sending notifications for deleted reports')
+            _send_deletion_notifications(config, age_in_days, as_user_account, mimetype='text/csv')
+        else:
+            LOG('Delete notification disabled')
+
         delete_before_dt = datetime.now(UTC) - timedelta(days=age_in_days)
         drive = DriveApi(
             config['google_secrets_file'], as_user_account=as_user_account

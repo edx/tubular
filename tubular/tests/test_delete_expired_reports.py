@@ -25,7 +25,7 @@ TEST_CONFIG_FILENAME = 'test_config.yml'
 TEST_GOOGLE_SECRETS_FILENAME = 'test_google_secrets.json'
 
 
-def _call_script(age_in_days=1, expect_success=True):
+def _call_script(age_in_days=1, expect_success=True, enable_delete_notification=False):
     """
     Call the report deletion script with a generic, temporary config file.
     Returns the CliRunner.invoke results
@@ -37,16 +37,20 @@ def _call_script(age_in_days=1, expect_success=True):
         with open(TEST_GOOGLE_SECRETS_FILENAME, 'w') as secrets_f:
             fake_google_secrets_file(secrets_f)
 
+        args = [
+            '--config_file',
+            TEST_CONFIG_FILENAME,
+            '--google_secrets_file',
+            TEST_GOOGLE_SECRETS_FILENAME,
+            '--age_in_days',
+            age_in_days,
+        ]
+        if enable_delete_notification:
+            args += ['--enable_delete_notification', 'True']
+
         result = runner.invoke(
             delete_expired_reports,
-            args=[
-                '--config_file',
-                TEST_CONFIG_FILENAME,
-                '--google_secrets_file',
-                TEST_GOOGLE_SECRETS_FILENAME,
-                '--age_in_days',
-                age_in_days
-            ]
+            args=args
         )
 
         print(result)
@@ -106,7 +110,7 @@ def test_successful_report_deletion(*args):
     mock_delete_files.return_value = None
     mock_driveapi.return_value = None
 
-    result = _call_script()
+    result = _call_script(enable_delete_notification=True)
 
     # Make sure the files were listed (4 times: partner discovery, notifications, deletion, non-CSV reporting)
     assert mock_walk_files.call_count == 4
@@ -164,7 +168,7 @@ def test_deletion_report_no_matching_files(*args):
     mock_delete_files.return_value = None
     mock_driveapi.return_value = None
 
-    result = _call_script()
+    result = _call_script(enable_delete_notification=True)
 
     # Make sure the files were listed (4 times: partner discovery, notifications, deletion, non-CSV reporting)
     assert mock_walk_files.call_count == 4
@@ -347,7 +351,7 @@ def test_notifications_sent_for_old_files(*args):
     mock_delete_old_reports.return_value = None
     mock_driveapi.return_value = None
 
-    result = _call_script(age_in_days=365)
+    result = _call_script(age_in_days=365, enable_delete_notification=True)
 
     # Verify notifications were sent (one batch per partner)
     assert mock_create_comments.call_count == 2
@@ -417,7 +421,7 @@ def test_notifications_not_sent_for_recent_files(*args):
     mock_delete_old_reports.return_value = None
     mock_driveapi.return_value = None
 
-    result = _call_script(age_in_days=30)  # Files older than 30 days
+    result = _call_script(age_in_days=30, enable_delete_notification=True)  # Files older than 30 days
 
     # Verify NO notifications were sent (files are too recent)
     assert mock_create_comments.call_count == 0
@@ -462,7 +466,7 @@ def test_notifications_respect_prefix_matching(*args):
     mock_delete_old_reports.return_value = None
     mock_driveapi.return_value = None
 
-    result = _call_script(age_in_days=365)
+    result = _call_script(age_in_days=365, enable_delete_notification=True)
 
     # Should only notify for the one file matching the prefix
     assert mock_create_comments.call_count == 1
@@ -512,7 +516,7 @@ def test_notifications_skip_partners_without_poc(*args):
     mock_delete_old_reports.return_value = None
     mock_driveapi.return_value = None
 
-    result = _call_script(age_in_days=365)
+    result = _call_script(age_in_days=365, enable_delete_notification=True)
 
     # Only Partner1 should get notifications
     assert mock_create_comments.call_count == 1
@@ -542,4 +546,29 @@ def test_notifications_fail_if_no_partner_folders(*args):
 
     assert result.exit_code == ERR_DRIVE_LISTING
     assert 'Finding partner directories on Drive failed' in result.output
+
+
+@patch('tubular.google_api.DriveApi.__init__')
+@patch('tubular.google_api.DriveApi.walk_files')
+@patch('tubular.google_api.DriveApi.create_comments_for_files')
+@patch('tubular.google_api.DriveApi.delete_files_older_than')
+def test_notifications_disabled_by_default(*args):
+    """
+    Test that deletion notifications are NOT sent when enable_delete_notification is False (default).
+    """
+    mock_delete_old_reports = args[0]
+    mock_create_comments = args[1]
+    mock_walk_files = args[2]
+    mock_driveapi = args[3]
+
+    mock_walk_files.return_value = [{'id': 'partner1_folder_id', 'name': 'Partner1'}]
+    mock_delete_old_reports.return_value = None
+    mock_driveapi.return_value = None
+
+    result = _call_script()  # enable_delete_notification=False by default
+
+    assert result.exit_code == 0
+    assert mock_create_comments.call_count == 0
+    assert 'Delete notification disabled' in result.output
+    assert 'Partner report deletion complete' in result.output
 
