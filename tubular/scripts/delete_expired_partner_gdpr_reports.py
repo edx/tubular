@@ -280,12 +280,11 @@ def delete_expired_reports(
         FAIL(ERR_BAD_AGE, 'age_in_days must be a positive integer.')
 
     config = _config_or_exit(config_file, google_secrets_file)
-    
-    _config_drive_folder_map_or_exit(config, as_user_account)
 
     try:
         if enable_delete_notification:
             LOG('Delete notification enabled - sending notifications for deleted reports')
+            _config_drive_folder_map_or_exit(config, as_user_account)
             _send_deletion_notifications(config, age_in_days, as_user_account, mimetype='text/csv')
         else:
             LOG('Delete notification disabled')

@@ -545,27 +545,26 @@ def test_notifications_fail_if_no_partner_folders(*args):
     mock_driveapi.return_value = None
 
     from tubular.scripts.delete_expired_partner_gdpr_reports import ERR_DRIVE_LISTING
-    
-    result = _call_script(expect_success=False)
+
+    result = _call_script(expect_success=False, enable_delete_notification=True)
 
     assert result.exit_code == ERR_DRIVE_LISTING
     assert 'Finding partner directories on Drive failed' in result.output
 
 
 @patch('tubular.google_api.DriveApi.__init__')
-@patch('tubular.google_api.DriveApi.walk_files')
 @patch('tubular.google_api.DriveApi.create_comments_for_files')
 @patch('tubular.google_api.DriveApi.delete_files_older_than')
 def test_notifications_disabled_by_default(*args):
     """
     Test that deletion notifications are NOT sent when enable_delete_notification is False (default).
+    walk_files is NOT called at all because _config_drive_folder_map_or_exit is only
+    invoked inside the enable_delete_notification branch.
     """
     mock_delete_old_reports = args[0]
     mock_create_comments = args[1]
-    mock_walk_files = args[2]
-    mock_driveapi = args[3]
+    mock_driveapi = args[2]
 
-    mock_walk_files.return_value = [{'id': 'partner1_folder_id', 'name': 'Partner1'}]
     mock_delete_old_reports.return_value = None
     mock_driveapi.return_value = None
 
