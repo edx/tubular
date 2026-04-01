@@ -282,15 +282,19 @@ def test_deletion_error(*args):
     mock_walk_files = args[3]
     mock_drive_init = args[4]
     
-    # Mock successful partner folder discovery
-    mock_walk_files.return_value = [{'id': 'partner1_folder_id', 'name': 'Partner1'}]
+    mock_walk_files.side_effect = [
+        # First call: partner folder discovery
+        [{'id': 'partner1_folder_id', 'name': 'Partner1'}],
+        # Second call: notification file listing per partner (empty - no files to notify)
+        [],
+    ]
     mock_list_permissions.return_value = {'partner1_folder_id': [{'emailAddress': 'test@example.com'}]}
     mock_create_comments.return_value = None
 
     mock_delete_old_reports.side_effect = Exception()
     mock_drive_init.return_value = None
 
-    result = _call_script(expect_success=False)
+    result = _call_script(expect_success=False, enable_delete_notification=True)
 
     assert result.exit_code == ERR_DELETING_REPORTS
     assert 'Unexpected error occurred' in result.output
