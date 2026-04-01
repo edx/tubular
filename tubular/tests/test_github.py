@@ -407,6 +407,118 @@ class GitHubApiTestCase(TestCase):
         assert set(expected_contexts) == set(filtered_results.keys())
 
     @ddt.data(
+        # Test case 1: Missing required check should be added as pending
+        (
+            ['Unit tests successful', 'Quality checks'],
+            ['Quality checks'],
+            {'Unit tests successful': ('pending', None), 'Quality checks': ('success', 'some.url')},
+            False,
+        ),
+        # Test case 2: All required checks present - no changes
+        (
+            ['Unit tests successful', 'Quality checks'],
+            ['Unit tests successful', 'Quality checks'],
+            {'Unit tests successful': ('success', 'some.url'), 'Quality checks': ('success', 'some.url')},
+            False,
+        ),
+        # Test case 3: Multiple missing required checks - all added as pending
+        (
+            ['Check A', 'Check B', 'Check C'],
+            [],
+            {'Check A': ('pending', None), 'Check B': ('pending', None), 'Check C': ('pending', None)},
+            False,
+        ),
+        # Test case 4: all_checks=True with missing checks - should NOT add them
+        (
+            ['Unit tests successful'],
+            [],
+            {},
+            True,
+        ),
+        # Test case 5: No required checks configured - nothing to add
+        (
+            [],
+            [],
+            {},
+            False,
+        ),
+        # Test case 6: Mix of present and missing checks
+        (
+            ['Check A', 'Check B', 'Check C'],
+            ['Check A', 'Check C'],
+            {'Check A': ('success', 'some.url'), 'Check B': ('pending', None), 'Check C': ('failure', 'some.url')},
+            False,
+        ),
+    )
+    @ddt.unpack
+    def test_missing_required_checks_treated_as_pending(
+        self, required_checks, existing_checks, expected_results, all_checks
+    ):
+        """
+        Test that missing required checks are added as pending to block deployment.
+        
+        This validates the fix for BOMS-242 where deployments were incorrectly
+        proceeding while CI checks were still running because missing required checks
+        were being ignored.
+        """
+        with patch.object(
+                Github,
+                'get_organization',
+                return_value=Mock(name='org-mock', spec=Organization)
+        ):
+            with patch.object(Github, 'get_repo', return_value=Mock(name='repo-mock', spec=Repository)) as repo_mock:
+                api = GitHubAPI(
+                    'test-org',
+                    'test-repo',
+                    token='abc123',
+                    all_checks=all_checks
+                )
+        
+        api.log_rate_limit = Mock(return_value=None)
+        api.get_branch_protection_rules = Mock(return_value=required_checks)
+        
+        mock_combined_status = Mock(name='combined-status', spec=CommitCombinedStatus)
+        mock_combined_status.statuses = []
+        
+        for check_name in existing_checks:
+            status_state = 'success'
+            if 'failure' in expected_results.get(check_name, ('', ''))[0]:
+                status_state = 'failure'
+            elif 'pending' in expected_results.get(check_name, ('', ''))[0]:
+                status_state = 'pending'
+            
+            mock_status = Mock(name=check_name, spec=CommitStatus)
+            mock_status.context = check_name
+            mock_status.state = status_state
+            mock_status.target_url = 'some.url'
+            mock_combined_status.statuses.append(mock_status)
+        
+        commit_mock = Mock(name='commit', spec=Commit, url="some.fake.repo/")
+        commit_mock.get_combined_status.return_value = mock_combined_status
+        repo_mock.return_value.get_commit.return_value = commit_mock
+        commit_mock._requester = Mock(name='_requester')  # pylint: disable=protected-access
+        
+        commit_mock._requester.requestJsonAndCheck.return_value = (  # pylint: disable=protected-access
+            {},
+            {
+                'check_suites': [],
+                'check_runs': []
+            }
+        )
+        
+        results = api.get_validation_results('deadbeef')
+        
+        assert set(results.keys()) == set(expected_results.keys()), \
+            f"Expected checks: {set(expected_results.keys())}, Got: {set(results.keys())}"
+        
+        for check_name, (expected_state, expected_url) in expected_results.items():
+            actual_state, actual_url = results[check_name]
+            assert actual_state == expected_state, \
+                f"Check '{check_name}': expected state '{expected_state}', got '{actual_state}'"
+            assert actual_url == expected_url, \
+                f"Check '{check_name}': expected URL '{expected_url}', got '{actual_url}'"
+
+    @ddt.data(
         # 1 unique SHA should result in 1 search query and 1 PR.
         (SHAS[:1], 1, 1),
         # 18 unique SHAs should result in 1 search query and 18 PRs.
