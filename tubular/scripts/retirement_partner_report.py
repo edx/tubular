@@ -316,13 +316,11 @@ def _get_external_emails_for_partners(drive, config, partners=None):
         folder_ids,
         fields='emailAddress',
     )
-    
     # Create a mapping of partners to a list of permissions dicts
     permissions = {
         partner: partner_folders_to_permissions[config['partner_folder_mapping'][partner]]
         for partner in partners
     }
-    
     # Filter out denied addresses and flatten to just email addresses
     external_emails = {
         partner: [
