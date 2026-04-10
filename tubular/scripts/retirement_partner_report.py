@@ -6,10 +6,12 @@ Command-line script to drive the partner reporting part of the retirement proces
 """
 
 from collections import defaultdict, OrderedDict
-from datetime import date
+from datetime import date, datetime, timedelta
+from dateutil.parser import parse
 from functools import partial
 import logging
 import os
+from pytz import UTC
 import sys
 import unicodedata
 import unicodecsv as csv
@@ -66,7 +68,15 @@ AUTH_HEADER = {}
 NOTIFICATION_MESSAGE_TEMPLATE = """
 Hello from edX. Dear {tags}, a new report listing the learners enrolled in your institution’s courses on edx.org that have requested deletion of their edX account and associated personal data within the last week has been published to Google Drive. Please access your folder to see the latest report.
 """.strip()
-
+# Used to verify deletion comments; must exist in DELETION_WARNING_MESSAGE_TEMPLATE
+DELETION_WARNING_PHRASE = 'will be automatically deleted'
+# Deletion warning template for files approaching expiration
+# Format variables: tags, filename, days_until_deletion, deletion_date
+DELETION_WARNING_MESSAGE_TEMPLATE = (
+    'Hello from edX. Dear {tags}, this is an automated notice that the retirement report file '
+    '"{filename}" in your Google Drive folder ' + DELETION_WARNING_PHRASE +
+    ' in {days_until_deletion} days (on {deletion_date} UTC) as part of our data retention policy.'
+)
 LEARNER_CREATED_KEY = 'created'  # This key is currently required to exist in the learner
 LEARNER_ORIGINAL_USERNAME_KEY = 'original_username'  # This key is currently required to exist in the learner
 ORGS_KEY = 'orgs'
@@ -283,27 +293,39 @@ def _push_files_to_google(config, partner_filenames):
     return file_ids
 
 
-def _add_comments_to_files(config, file_ids):
+def _get_partner_emails(drive, config, partners=None):
     """
-    Add comments to the uploaded csv files, triggering email notification.
-
+    Extract external email addresses from partner folder permissions.
+    
+    This shared helper ensures consistent handling of permissions and denied domains
+    across different notification paths (e.g. upload comments, deletion warnings, etc.).
+    
     Args:
-        file_ids (dict): Mapping of partner names to Drive file IDs corresponding to the newly uploaded csv files.
+        drive (DriveApi): Initialized Drive API client.
+        config (dict): Configuration dictionary containing partner_folder_mapping and denied_notification_domains.
+        partners (list, optional): List of specific partner names to process. If None, processes all partners
+                                   in partner_folder_mapping.
+    
+    Returns:
+        dict: Mapping of partner names to lists of external email addresses (denied domains filtered out).
     """
-    drive = DriveApi(config['google_secrets_file'])
-
+    # Default to all partners if not specified
+    if partners is None:
+        partners = list(config['partner_folder_mapping'].keys())
+    
+    # Get unique folder IDs for the specified partners
+    folder_ids = {config['partner_folder_mapping'][partner] for partner in partners}
+    
     partner_folders_to_permissions = drive.list_permissions_for_files(
-        config['partner_folder_mapping'].values(),
+        folder_ids,
         fields='emailAddress',
     )
-
-    # create a mapping of partners to a list of permissions dicts:
+    # Create a mapping of partners to a list of permissions dicts
     permissions = {
         partner: partner_folders_to_permissions[config['partner_folder_mapping'][partner]]
-        for partner in file_ids
+        for partner in partners
     }
-
-    # throw out all denied addresses, and flatten the permissions dicts to just the email:
+    # Filter out denied addresses and flatten to just email addresses
     external_emails = {
         partner: [
             perm['emailAddress']
@@ -315,11 +337,26 @@ def _add_comments_to_files(config, file_ids):
         ]
         for partner in permissions
     }
+    
+    return external_emails
+
+
+def _add_comments_to_files(config, partner_file_ids_dict):
+    """
+    Add comments to the uploaded csv files, triggering email notification.
+
+    Args:
+        partner_file_ids_dict (dict): Mapping of partner names to Drive file IDs corresponding to the newly uploaded csv files.
+    """
+    drive = DriveApi(config['google_secrets_file'])
+    
+    # Get external emails for partners with uploaded files
+    external_emails = _get_partner_emails(drive, config, partners=list(partner_file_ids_dict.keys()))
 
     file_ids_and_comments = []
     missing_poc_partners = []
 
-    for partner in file_ids:
+    for partner in partner_file_ids_dict:
         if not external_emails[partner]:
             # Check if this partner is exempt from POC requirements
             if partner in config.get('exempted_partners', []):
@@ -338,7 +375,7 @@ def _add_comments_to_files(config, file_ids):
         else:
             tag_string = ' '.join('+' + email for email in external_emails[partner])
             comment_content = NOTIFICATION_MESSAGE_TEMPLATE.format(tags=tag_string)
-            file_ids_and_comments.append((file_ids[partner], comment_content))
+            file_ids_and_comments.append((partner_file_ids_dict[partner], comment_content))
 
     if file_ids_and_comments:
         try:
@@ -354,6 +391,141 @@ def _add_comments_to_files(config, file_ids):
         FAIL(ERR_MISSING_POC,
              'COMPLIANCE FAILURE: {} {} missing POC: {}. Project Coordinators must be informed.'
              .format(len(missing_poc_partners), partner_word, ', '.join('"{}"'.format(p) for p in missing_poc_partners)))
+
+
+def _check_and_notify_about_expiring_files(config):
+    """
+    Check for existing files approaching their deletion date and send warning notifications.
+    
+    Uses configuration values:
+    - deletion_warning_days: Days before deletion to send warning
+        
+    Args:
+        config (dict): Configuration dictionary containing retention settings and Drive folder mappings.
+    """
+    # CLI parameter "--age_in_days" represents the retention period.
+    retention_days = config.get('age_in_days', 60)
+    warning_days = config.get('deletion_warning_days', 7)
+
+    if retention_days <= 0 or warning_days <= 0:
+        raise ValueError(
+            'Misconfigured retention settings: age_in_days={}, deletion_warning_days={}. '
+            'Both must be positive integers.'.format(retention_days, warning_days)
+        )
+    if warning_days >= retention_days:
+        raise ValueError(
+            'Misconfigured retention settings: deletion_warning_days ({}) must be less than '
+            'age_in_days ({}).'.format(warning_days, retention_days)
+        )
+    
+    LOG('Checking for files approaching deletion (retention: {} days, warning: {} days before)'.format(
+        retention_days, warning_days
+    ))
+    
+    try:
+        drive = DriveApi(config['google_secrets_file'])
+        now = datetime.now(UTC)
+        warning_threshold = now - timedelta(days=(retention_days - warning_days))
+        
+        # Get external emails per partner using shared helper
+        external_emails = _get_partner_emails(drive, config)
+        
+        # Check files in each partner folder
+        platform_name = config['partner_report_platform_name']
+        file_prefix = '{}_{}'.format(REPORTING_FILENAME_PREFIX, platform_name)
+        
+        for partner in config['partner_folder_mapping']:
+            folder_id = config['partner_folder_mapping'][partner]
+            
+            # Skip if no external POC (unless exempt)
+            if not external_emails[partner]:
+                if partner not in config.get('exempted_partners', []):
+                    LOG('WARNING: Partner "{}" has no POC for deletion warnings'.format(partner))
+                continue
+            
+            try:
+                files = drive.walk_files(
+                    folder_id,
+                    file_fields='id, name, createdTime',
+                    mimetype='text/csv',
+                    recurse=False
+                )
+
+                pending_comments = []
+
+                for file_info in files:
+                    filename = file_info.get('name', '')
+
+                    if not filename.startswith(file_prefix):
+                        continue
+
+                    created_time_str = file_info.get('createdTime')
+                    if not created_time_str:
+                        LOG('WARNING: File {} has no creation time, skipping'.format(filename))
+                        continue
+
+                    file_created = parse(created_time_str)
+                    if file_created.tzinfo is None:
+                        file_created = file_created.replace(tzinfo=UTC)
+                    else:
+                        file_created = file_created.astimezone(UTC)
+
+                    if file_created <= warning_threshold:
+                        file_id = file_info.get('id')
+
+                        # First check if the file already has the deletion warning to avoid
+                        # duplicate comments on re-run.
+                        existing_comments = drive.list_comments_for_file(file_id, fields='content')
+                        has_warning = any(
+                            DELETION_WARNING_PHRASE in comment.get('content', '')
+                            for comment in existing_comments
+                        )
+
+                        if has_warning:
+                            LOG('File {} already has deletion warning, skipping'.format(filename))
+                            continue
+
+                        deletion_datetime = file_created + timedelta(days=retention_days)
+                        # Use total_seconds-based math to avoid .days flooring off-by-one
+                        seconds_until_deletion = (deletion_datetime - now).total_seconds()
+                        days_until_deletion = int(seconds_until_deletion / 86400)
+
+                        if days_until_deletion <= 0:
+                            LOG('WARNING: File {} is already past its retention period, skipping warning'.format(filename))
+                            continue
+
+                        if days_until_deletion > warning_days:
+                            # File is older than warning_threshold but not yet in the warning window;
+                            # this shouldn't normally happen but guard against clock skew or config changes.
+                            LOG('File {} has {} days until deletion, outside warning window, skipping'.format(
+                                filename, days_until_deletion
+                            ))
+                            continue
+
+                        # deletion_datetime is already UTC; format as a UTC date
+                        deletion_date = deletion_datetime.strftime('%Y-%m-%d')
+
+                        tag_string = ' '.join('+' + email for email in external_emails[partner])
+                        comment_content = DELETION_WARNING_MESSAGE_TEMPLATE.format(
+                            tags=tag_string,
+                            filename=filename,
+                            days_until_deletion=days_until_deletion,
+                            deletion_date=deletion_date
+                        )
+                        pending_comments.append((file_id, comment_content))
+                        LOG('Queuing deletion warning for file: {} ({} days until deletion)'.format(
+                            filename, days_until_deletion
+                        ))
+
+                if pending_comments:
+                    drive.create_comments_for_files(pending_comments)
+                    LOG('Sent {} deletion warning(s) for partner "{}"'.format(len(pending_comments), partner))
+
+            except Exception as exc:  # pylint: disable=broad-except
+                LOG('WARNING: Error checking files for partner "{}": {}'.format(partner, exc))
+                
+    except Exception as exc:  # pylint: disable=broad-except
+        LOG('WARNING: Error in deletion warning check: {}. Continuing with report generation.'.format(exc))
 
 
 @click.command("generate_report")
@@ -374,7 +546,29 @@ def _add_comments_to_files(config, file_ids):
     default=True,
     help='Do or skip adding notification comments to the reports.'
 )
-def generate_report(config_file, google_secrets_file, output_dir, comments):
+@click.option(
+    '--age_in_days',
+    type=int,
+    default=None,
+    help='Number of days before files are deleted (matches cleanup job AGE_IN_DAYS).'
+)
+@click.option(
+    '--deletion_warning_days',
+    type=int,
+    default=None,
+    help='Number of days before deletion to send warning notification (overrides config file value).'
+)
+@click.option(
+    '--enable_check_expiring_files',
+    type=click.BOOL,
+    default=False,
+    help=(
+        'Enable expiring file checks and deletion warning notifications for GDPR partner reports. '
+        'If set to true, the script will identify files nearing deletion and notify partners. '
+    ),
+    show_default=True,
+)
+def generate_report(config_file, google_secrets_file, output_dir, comments, age_in_days, deletion_warning_days, enable_check_expiring_files):
     """
     Retrieves a JWT token as the retirement service learner, then performs the reporting process as that user.
 
@@ -382,6 +576,7 @@ def generate_report(config_file, google_secrets_file, output_dir, comments):
     - Gets the users in the LMS reporting queue and the partners they need to be reported to
     - Generates a single report per partner
     - Pushes the reports to Google Drive
+    - Checks for old files and sends deletion warnings if configured
     - On success tells LMS to remove the users who succeeded from the reporting queue
     """
     LOG('Starting partner report using config file {} and Google config {}'.format(config_file, google_secrets_file))
@@ -398,8 +593,20 @@ def generate_report(config_file, google_secrets_file, output_dir, comments):
             FAIL(ERR_NO_OUTPUT_DIR, 'No output_dir passed in or path does not exist.')
 
         config = CONFIG_WITH_DRIVE_OR_EXIT(config_file, google_secrets_file)
+        
+        # Override retention/warning days from CLI if provided
+        if age_in_days is not None:
+            config['age_in_days'] = age_in_days
+        if deletion_warning_days is not None:
+            config['deletion_warning_days'] = deletion_warning_days
+        
         SETUP_LMS_OR_EXIT(config)
         _config_drive_folder_map_or_exit(config)
+        
+        # Check for expiring files and send warnings if enabled
+        if enable_check_expiring_files:
+            _check_and_notify_about_expiring_files(config)
+        
         report_data, all_usernames = _get_orgs_and_learners_or_exit(config)
         # If no usernames were returned, then no reports need to be generated.
         if all_usernames:

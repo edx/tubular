@@ -7,11 +7,13 @@ Test the retire_one_learner.py script
 import csv
 import os
 import unicodedata
-from datetime import date
+from datetime import date, datetime, timedelta
 import time
 
+import pytest
 from click.testing import CliRunner
 from mock import DEFAULT, patch
+from pytz import UTC
 from six import PY2, itervalues
 
 from tubular.scripts.retirement_partner_report import (
@@ -28,6 +30,7 @@ from tubular.scripts.retirement_partner_report import (
     ERR_SETUP_FAILED,
     ERR_UNKNOWN_ORG,
     ERR_DRIVE_LISTING,
+    DELETION_WARNING_PHRASE,
     LEARNER_CREATED_KEY,
     LEARNER_ORIGINAL_USERNAME_KEY,
     ORGS_CONFIG_FIELD_HEADINGS_KEY,
@@ -40,6 +43,7 @@ from tubular.scripts.retirement_partner_report import (
     generate_report,
     _generate_report_files_or_exit,  # pylint: disable=protected-access
     _get_orgs_and_learners_or_exit,  # pylint: disable=protected-access
+    _check_and_notify_about_expiring_files,  # pylint: disable=protected-access
 )
 
 from tubular.tests.retirement_helpers import fake_config_file, fake_google_secrets_file, flatten_partner_list, FAKE_ORGS, TEST_PLATFORM_NAME
@@ -943,3 +947,161 @@ def test_file_content_custom_headings():
             # Verify default field values are not present
             assert username not in file_content
             assert DELETION_TIME not in file_content
+
+
+# -----------------------------------------------------------------------
+# Tests for _check_and_notify_about_expiring_files
+# -----------------------------------------------------------------------
+
+def _make_expiring_config(age_in_days=60, deletion_warning_days=7):
+    """Minimal config dict for expiring-file tests."""
+    return {
+        'google_secrets_file': 'fake.json',
+        'partner_report_platform_name': 'fakename',
+        'age_in_days': age_in_days,
+        'deletion_warning_days': deletion_warning_days,
+        'denied_notification_domains': ['@edx.org'],
+        'partner_folder_mapping': {'Org1X': 'folder_Org1X'},
+        'exempted_partners': [],
+    }
+
+
+def test_check_expiring_files_raises_on_zero_retention():
+    """ValueError is raised if age_in_days is 0."""
+    config = _make_expiring_config(age_in_days=0, deletion_warning_days=7)
+    with pytest.raises(ValueError, match='Misconfigured retention settings'):
+        _check_and_notify_about_expiring_files(config)
+
+
+def test_check_expiring_files_raises_on_zero_warning_days():
+    """ValueError is raised if deletion_warning_days is 0."""
+    config = _make_expiring_config(age_in_days=60, deletion_warning_days=0)
+    with pytest.raises(ValueError, match='Misconfigured retention settings'):
+        _check_and_notify_about_expiring_files(config)
+
+
+def test_check_expiring_files_raises_when_warning_days_gte_retention():
+    """ValueError is raised if deletion_warning_days >= age_in_days."""
+    config = _make_expiring_config(age_in_days=7, deletion_warning_days=7)
+    with pytest.raises(ValueError, match='must be less than'):
+        _check_and_notify_about_expiring_files(config)
+
+
+@patch('tubular.google_api.DriveApi.__init__')
+@patch('tubular.google_api.DriveApi.list_permissions_for_files')
+@patch('tubular.google_api.DriveApi.walk_files')
+@patch('tubular.google_api.DriveApi.list_comments_for_file')
+@patch('tubular.google_api.DriveApi.create_comments_for_files')
+def test_check_expiring_files_skips_already_warned(*args):
+    """Files that already have a deletion warning comment are skipped."""
+    mock_create_comments = args[0]
+    mock_list_comments = args[1]
+    mock_walk_files = args[2]
+    mock_list_permissions = args[3]
+    mock_driveapi = args[4]
+
+    mock_driveapi.return_value = None
+    mock_list_permissions.return_value = {
+        'folder_Org1X': [{'emailAddress': 'poc@example.com'}]
+    }
+    old_time = (datetime.now(UTC) - timedelta(days=55)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    mock_walk_files.return_value = [
+        {'name': 'user_retirement_fakename_Org1X_2026-01-01.csv', 'id': 'file1', 'createdTime': old_time}
+    ]
+    mock_list_comments.return_value = [{'content': 'This file will be automatically deleted soon'}]
+
+    config = _make_expiring_config()
+    _check_and_notify_about_expiring_files(config)
+
+    mock_create_comments.assert_not_called()
+
+
+@patch('tubular.google_api.DriveApi.__init__')
+@patch('tubular.google_api.DriveApi.list_permissions_for_files')
+@patch('tubular.google_api.DriveApi.walk_files')
+@patch('tubular.google_api.DriveApi.list_comments_for_file')
+@patch('tubular.google_api.DriveApi.create_comments_for_files')
+def test_check_expiring_files_queues_warning_for_expiring_file(*args):
+    """Deletion warning is posted for a file in the warning window with no prior warning."""
+    mock_create_comments = args[0]
+    mock_list_comments = args[1]
+    mock_walk_files = args[2]
+    mock_list_permissions = args[3]
+    mock_driveapi = args[4]
+
+    mock_driveapi.return_value = None
+    mock_list_permissions.return_value = {
+        'folder_Org1X': [{'emailAddress': 'poc@example.com'}]
+    }
+    old_time = (datetime.now(UTC) - timedelta(days=55)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    mock_walk_files.return_value = [
+        {'name': 'user_retirement_fakename_Org1X_2026-01-01.csv', 'id': 'file1', 'createdTime': old_time}
+    ]
+    mock_list_comments.return_value = []
+
+    config = _make_expiring_config()
+    _check_and_notify_about_expiring_files(config)
+
+    mock_create_comments.assert_called_once()
+    posted_comments = mock_create_comments.call_args[0][0]
+    assert len(posted_comments) == 1
+    file_id, content = posted_comments[0]
+    assert file_id == 'file1'
+    assert DELETION_WARNING_PHRASE in content
+    assert '+poc@example.com' in content
+
+
+@patch('tubular.google_api.DriveApi.__init__')
+@patch('tubular.google_api.DriveApi.list_permissions_for_files')
+@patch('tubular.google_api.DriveApi.walk_files')
+@patch('tubular.scripts.retirement_partner_report._check_and_notify_about_expiring_files')
+@patch('tubular.edx_api.BaseApiClient.get_access_token')
+@patch.multiple(
+    'tubular.edx_api.LmsApi',
+    retirement_partner_report=DEFAULT,
+    retirement_partner_cleanup=DEFAULT
+)
+def test_enable_check_expiring_files_false_does_not_call_check(*args, **kwargs):
+    """When enable_check_expiring_files=False, _check_and_notify_about_expiring_files is never called."""
+    mock_get_access_token = args[0]
+    mock_check_expiring = args[1]
+    mock_walk_files = args[2]
+    mock_list_permissions = args[3]
+    mock_driveapi = args[4]
+    mock_retirement_report = kwargs['retirement_partner_report']
+    mock_retirement_cleanup = kwargs['retirement_partner_cleanup']
+
+    mock_get_access_token.return_value = ('THIS_IS_A_JWT', None)
+    mock_driveapi.return_value = None
+    mock_list_permissions.return_value = {
+        'folder' + partner: [{'emailAddress': 'poc@example.com'}]
+        for partner in flatten_partner_list(FAKE_ORGS.values())
+    }
+    mock_walk_files.return_value = [
+        {'name': partner, 'id': 'folder' + partner}
+        for partner in flatten_partner_list(FAKE_ORGS.values())
+    ]
+    mock_retirement_report.return_value = []
+    mock_retirement_cleanup.return_value = None
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open(TEST_CONFIG_YML_NAME, 'w') as config_f:
+            fake_config_file(config_f)
+        with open(TEST_GOOGLE_SECRETS_FILENAME, 'w') as secrets_f:
+            fake_google_secrets_file(secrets_f)
+        tmp_output_dir = 'test_output_dir'
+        os.mkdir(tmp_output_dir)
+
+        result = runner.invoke(
+            generate_report,
+            args=[
+                '--config_file', TEST_CONFIG_YML_NAME,
+                '--google_secrets_file', TEST_GOOGLE_SECRETS_FILENAME,
+                '--output_dir', tmp_output_dir,
+                '--enable_check_expiring_files', 'false',
+            ]
+        )
+
+    assert result.exit_code == 0
+    mock_check_expiring.assert_not_called()
