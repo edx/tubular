@@ -498,7 +498,7 @@ def _check_and_notify_about_expiring_files(config, enable_overdue_file_notificat
 
                         if days_until_deletion <= 0:
                             if enable_overdue_file_notification:
-                                LOG('WARNING: File {} is already past its retention period, skipping warning'.format(filename))
+                                LOG('File {} is past its retention period, queuing overdue notification'.format(filename))
                                 tag_string = ' '.join('+' + email for email in external_emails[partner])
                                 comment_content = OVERDUE_FILE_NOTIFICATION_TEMPLATE.format(
                                     tags=tag_string,
