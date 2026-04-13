@@ -437,10 +437,6 @@ def _check_and_notify_about_expiring_files(config, enable_overdue_file_notificat
         # Get external emails per partner using shared helper
         external_emails = _get_partner_emails(drive, config)
         
-        # Check files in each partner folder
-        platform_name = config['partner_report_platform_name']
-        file_prefix = '{}_{}'.format(REPORTING_FILENAME_PREFIX, platform_name)
-        
         for partner in config['partner_folder_mapping']:
             folder_id = config['partner_folder_mapping'][partner]
             
@@ -461,9 +457,6 @@ def _check_and_notify_about_expiring_files(config, enable_overdue_file_notificat
 
                 for file_info in files:
                     filename = file_info.get('name', '')
-
-                    if not filename.startswith(file_prefix):
-                        continue
 
                     created_time_str = file_info.get('createdTime')
                     if not created_time_str:
