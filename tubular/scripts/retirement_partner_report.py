@@ -77,6 +77,13 @@ DELETION_WARNING_MESSAGE_TEMPLATE = (
     '"{filename}" in your Google Drive folder ' + DELETION_WARNING_PHRASE +
     ' in {days_until_deletion} days (on {deletion_date} UTC) as part of our data retention policy.'
 )
+# Overdue notification template for files already past their retention date
+# Format variables: tags, filename
+OVERDUE_FILE_NOTIFICATION_TEMPLATE = (
+    'Hello from edX. Dear {tags}, this is an automated notice that the retirement report file '
+    '"{filename}" in your Google Drive folder is past its data retention period '
+    'and will be deleted in 7 days.'
+)
 LEARNER_CREATED_KEY = 'created'  # This key is currently required to exist in the learner
 LEARNER_ORIGINAL_USERNAME_KEY = 'original_username'  # This key is currently required to exist in the learner
 ORGS_KEY = 'orgs'
@@ -393,7 +400,7 @@ def _add_comments_to_files(config, partner_file_ids_dict):
              .format(len(missing_poc_partners), partner_word, ', '.join('"{}"'.format(p) for p in missing_poc_partners)))
 
 
-def _check_and_notify_about_expiring_files(config):
+def _check_and_notify_about_expiring_files(config, enable_overdue_file_notification=False):
     """
     Check for existing files approaching their deletion date and send warning notifications.
     
@@ -447,7 +454,6 @@ def _check_and_notify_about_expiring_files(config):
                 files = drive.walk_files(
                     folder_id,
                     file_fields='id, name, createdTime',
-                    mimetype='text/csv',
                     recurse=False
                 )
 
@@ -491,7 +497,15 @@ def _check_and_notify_about_expiring_files(config):
                         days_until_deletion = int(seconds_until_deletion / 86400)
 
                         if days_until_deletion <= 0:
-                            LOG('WARNING: File {} is already past its retention period, skipping warning'.format(filename))
+                            if enable_overdue_file_notification:
+                                LOG('WARNING: File {} is already past its retention period, skipping warning'.format(filename))
+                                tag_string = ' '.join('+' + email for email in external_emails[partner])
+                                comment_content = OVERDUE_FILE_NOTIFICATION_TEMPLATE.format(
+                                    tags=tag_string,
+                                    filename=filename,
+                                )
+                                pending_comments.append((file_id, comment_content))
+                                LOG('Queuing overdue file notification for: {}'.format(filename))
                             continue
 
                         if days_until_deletion > warning_days:
@@ -568,7 +582,17 @@ def _check_and_notify_about_expiring_files(config):
     ),
     show_default=True,
 )
-def generate_report(config_file, google_secrets_file, output_dir, comments, age_in_days, deletion_warning_days, enable_check_expiring_files):
+@click.option(
+    '--enable_overdue_file_notification',
+    type=click.BOOL,
+    default=False,
+    help=(
+        'If enabled, send a notification comment to partners for files that are already past their '
+        'retention period during the expiring files check.'
+    ),
+    show_default=True,
+)
+def generate_report(config_file, google_secrets_file, output_dir, comments, age_in_days, deletion_warning_days, enable_check_expiring_files, enable_overdue_file_notification):
     """
     Retrieves a JWT token as the retirement service learner, then performs the reporting process as that user.
 
@@ -605,7 +629,7 @@ def generate_report(config_file, google_secrets_file, output_dir, comments, age_
         
         # Check for expiring files and send warnings if enabled
         if enable_check_expiring_files:
-            _check_and_notify_about_expiring_files(config)
+            _check_and_notify_about_expiring_files(config, enable_overdue_file_notification=enable_overdue_file_notification)
         
         report_data, all_usernames = _get_orgs_and_learners_or_exit(config)
         # If no usernames were returned, then no reports need to be generated.
