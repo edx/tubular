@@ -488,11 +488,12 @@ def _check_and_notify_about_expiring_files(config, enable_overdue_file_notificat
                             if enable_overdue_file_notification:
                                 LOG('File {} is past its retention period, queuing overdue notification'.format(filename))
                                 tag_string = ' '.join('+' + email for email in external_emails[partner])
+                                overdue_deletion_date = (now + timedelta(days=warning_days)).strftime('%Y-%m-%d')
                                 comment_content = DELETION_WARNING_MESSAGE_TEMPLATE.format(
                                     tags=tag_string,
                                     filename=filename,
                                     days_until_deletion=warning_days,
-                                    deletion_date=deletion_date,
+                                    deletion_date=overdue_deletion_date,
                                 )
                                 pending_comments.append((file_id, comment_content))
                                 LOG('Queuing overdue file notification for: {}'.format(filename))
