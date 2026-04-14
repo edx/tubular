@@ -491,7 +491,7 @@ def _check_and_notify_about_expiring_files(config, enable_overdue_file_notificat
                                 comment_content = DELETION_WARNING_MESSAGE_TEMPLATE.format(
                                     tags=tag_string,
                                     filename=filename,
-                                    days_until_deletion=days_until_deletion,
+                                    days_until_deletion=warning_days,
                                     deletion_date=deletion_date,
                                 )
                                 pending_comments.append((file_id, comment_content))
