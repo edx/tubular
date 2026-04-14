@@ -77,13 +77,6 @@ DELETION_WARNING_MESSAGE_TEMPLATE = (
     '"{filename}" in your Google Drive folder ' + DELETION_WARNING_PHRASE +
     ' in {days_until_deletion} days (on {deletion_date} UTC) as part of our data retention policy.'
 )
-# Overdue notification template for files already past their retention date
-# Format variables: tags, filename
-OVERDUE_FILE_NOTIFICATION_TEMPLATE = (
-    'Hello from edX. Dear {tags}, this is an automated notice that the retirement report file '
-    '"{filename}" in your Google Drive folder is past its data retention period '
-    'and will be deleted in 7 days.'
-)
 LEARNER_CREATED_KEY = 'created'  # This key is currently required to exist in the learner
 LEARNER_ORIGINAL_USERNAME_KEY = 'original_username'  # This key is currently required to exist in the learner
 ORGS_KEY = 'orgs'
@@ -488,14 +481,18 @@ def _check_and_notify_about_expiring_files(config, enable_overdue_file_notificat
                         # Use total_seconds-based math to avoid .days flooring off-by-one
                         seconds_until_deletion = (deletion_datetime - now).total_seconds()
                         days_until_deletion = int(seconds_until_deletion / 86400)
+                        # deletion_datetime is already UTC; format as a UTC date
+                        deletion_date = deletion_datetime.strftime('%Y-%m-%d')
 
                         if days_until_deletion <= 0:
                             if enable_overdue_file_notification:
                                 LOG('File {} is past its retention period, queuing overdue notification'.format(filename))
                                 tag_string = ' '.join('+' + email for email in external_emails[partner])
-                                comment_content = OVERDUE_FILE_NOTIFICATION_TEMPLATE.format(
+                                comment_content = DELETION_WARNING_MESSAGE_TEMPLATE.format(
                                     tags=tag_string,
                                     filename=filename,
+                                    days_until_deletion=warning_days,
+                                    deletion_date=deletion_date,
                                 )
                                 pending_comments.append((file_id, comment_content))
                                 LOG('Queuing overdue file notification for: {}'.format(filename))
@@ -508,9 +505,6 @@ def _check_and_notify_about_expiring_files(config, enable_overdue_file_notificat
                                 filename, days_until_deletion
                             ))
                             continue
-
-                        # deletion_datetime is already UTC; format as a UTC date
-                        deletion_date = deletion_datetime.strftime('%Y-%m-%d')
 
                         tag_string = ' '.join('+' + email for email in external_emails[partner])
                         comment_content = DELETION_WARNING_MESSAGE_TEMPLATE.format(
