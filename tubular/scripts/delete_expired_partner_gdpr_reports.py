@@ -21,7 +21,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from tubular.google_api import DriveApi  # pylint: disable=wrong-import-position
 from tubular.scripts.helpers import _log, _fail, _fail_exception  # pylint: disable=wrong-import-position
-from tubular.scripts.retirement_partner_report import REPORTING_FILENAME_PREFIX  # pylint: disable=wrong-import-position
+from tubular.scripts.retirement_partner_report import DELETION_WARNING_PHRASE  # pylint: disable=wrong-import-position
 
 SCRIPT_SHORTNAME = 'delete_expired_reports'
 LOG = partial(_log, SCRIPT_SHORTNAME)
@@ -136,8 +136,7 @@ def delete_expired_reports(
         drive.delete_files_older_than(
             config['drive_partners_folder'],
             delete_before_dt,
-            mimetype='text/csv',
-            prefix="{}_{}".format(REPORTING_FILENAME_PREFIX, config['partner_report_platform_name'])
+            deletion_warning_phrase=DELETION_WARNING_PHRASE,
         )
         LOG('Partner report deletion complete')
     except Exception as exc:  # pylint: disable=broad-except

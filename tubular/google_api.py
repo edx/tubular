@@ -310,7 +310,7 @@ class DriveApi(BaseApiClient):
         if len(responses) != len(file_ids):
             raise BatchRequestError('Error deleting one or more files/folders.')
 
-    def delete_files_older_than(self, top_level, delete_before_dt, mimetype=None, prefix=None):
+    def delete_files_older_than(self, top_level, delete_before_dt, mimetype=None, prefix=None, deletion_warning_phrase=None):
         """
         Delete all files beneath a given top level folder that are older than a certain datetime.
         Optionally, specify a file mimetype and a filename prefix.
@@ -321,13 +321,15 @@ class DriveApi(BaseApiClient):
                 will be permanently deleted. Should be timezone offset-aware.
             mimetype (str): Mimetype of files to delete. If not specified, all non-folders will be found.
             prefix (str): Filename prefix - only files started with this prefix will be deleted.
+            deletion_warning_phrase (str): If provided, only delete files that already have a comment
+                containing this phrase. Files without the warning comment will be skipped.
         """
         LOG.info("Starting deletion process with criteria - mimetype: {}, prefix: {}, delete_before: {}".format(
             mimetype or 'any', prefix or 'any', delete_before_dt
         ))
         LOG.info("Walking files...")
         all_files = self.walk_files(
-            top_level, 'id, name, createdTime', mimetype
+            top_level, 'id, name, createdTime, mimeType', mimetype
         )
         LOG.info("Files walked. {} files found (already filtered by mimetype: {}).".format(
             len(all_files), mimetype or 'any'
@@ -338,7 +340,14 @@ class DriveApi(BaseApiClient):
         for file in all_files:
             file_created = parse(file['createdTime'])
             file_name = file.get('name', 'unknown')
-            
+            file_mimetype = file.get('mimeType', '')
+
+            # Skip folders — only delete actual files
+            if file_mimetype == FOLDER_MIMETYPE:
+                LOG.info("Skipping folder: '{}'".format(file_name))
+                skipped_files_count += 1
+                continue
+
             # Check prefix requirement
             prefix_check_passed = not prefix or file_name.startswith(prefix)
             # Check date requirement
@@ -353,6 +362,17 @@ class DriveApi(BaseApiClient):
             ))
             
             if prefix_check_passed and date_check_passed:
+                # If a warning phrase is required, check that the file has a matching comment.
+                if deletion_warning_phrase:
+                    existing_comments = self.list_comments_for_file(file['id'], fields='content')
+                    has_warning = any(
+                        deletion_warning_phrase in comment.get('content', '')
+                        for comment in existing_comments
+                    )
+                    if not has_warning:
+                        LOG.info("File '{}' has no deletion warning comment, skipping.".format(file_name))
+                        skipped_files_count += 1
+                        continue
                 file_ids_to_delete.append(file['id'])
                 LOG.info("✓ File '{}' marked for deletion.".format(file_name))
             else:
