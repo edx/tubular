@@ -60,11 +60,13 @@ def _call_script(age_in_days=1, expect_success=True):
 
 @patch('tubular.google_api.DriveApi.__init__')
 @patch('tubular.google_api.DriveApi.walk_files')
+@patch('tubular.google_api.DriveApi.list_comments_for_file')
 @patch('tubular.google_api.DriveApi.delete_files')
 def test_successful_report_deletion(*args):
     mock_delete_files = args[0]
-    mock_walk_files = args[1]
-    mock_driveapi = args[2]
+    mock_list_comments = args[1]
+    mock_walk_files = args[2]
+    mock_driveapi = args[3]
 
     test_created_date = '2018-07-13T22:21:45.600275+00:00'
     file_prefix = '{}_{}'.format(REPORTING_FILENAME_PREFIX, TEST_PLATFORM_NAME)
@@ -86,13 +88,14 @@ def test_successful_report_deletion(*args):
             'createdTime': test_created_date,
         },
     ]
+    mock_list_comments.return_value = [{'content': 'will be automatically deleted'}]
     mock_delete_files.return_value = None
     mock_driveapi.return_value = None
 
     result = _call_script()
 
-    # Make sure the files were listed (twice: once for deletion, once for non-CSV reporting)
-    assert mock_walk_files.call_count == 2
+    # Make sure the files were listed once for deletion
+    assert mock_walk_files.call_count == 1
 
     # Make sure we tried to delete the files
     assert mock_delete_files.call_count == 1
@@ -102,11 +105,13 @@ def test_successful_report_deletion(*args):
 
 @patch('tubular.google_api.DriveApi.__init__')
 @patch('tubular.google_api.DriveApi.walk_files')
+@patch('tubular.google_api.DriveApi.list_comments_for_file')
 @patch('tubular.google_api.DriveApi.delete_files')
 def test_deletion_report_no_matching_files(*args):
     mock_delete_files = args[0]
-    mock_walk_files = args[1]
-    mock_driveapi = args[2]
+    mock_list_comments = args[1]
+    mock_walk_files = args[2]
+    mock_driveapi = args[3]
 
     test_created_date = '2018-07-13T22:21:45.600275+00:00'
     mock_walk_files.return_value = [
@@ -126,13 +131,14 @@ def test_deletion_report_no_matching_files(*args):
             'createdTime': test_created_date,
         },
     ]
+    mock_list_comments.return_value = []
     mock_delete_files.return_value = None
     mock_driveapi.return_value = None
 
     result = _call_script()
 
-    # Make sure the files were listed (twice: once for deletion, once for non-CSV reporting)
-    assert mock_walk_files.call_count == 2
+    # Make sure the files were listed once for deletion
+    assert mock_walk_files.call_count == 1
 
     # Make sure we did *not* try to delete the files - nothing to delete.
     assert mock_delete_files.call_count == 0
