@@ -136,7 +136,6 @@ def delete_expired_reports(
         drive.delete_files_older_than(
             config['drive_partners_folder'],
             delete_before_dt,
-            deletion_warning_phrase=DELETION_WARNING_PHRASE,
         )
         LOG('Partner report deletion complete')
     except Exception as exc:  # pylint: disable=broad-except
