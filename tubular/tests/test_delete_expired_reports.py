@@ -5,9 +5,11 @@ Test the retire_one_learner.py script
 
 
 import os
+from datetime import datetime
 
 from click.testing import CliRunner
 from mock import patch
+from pytz import UTC
 
 from tubular.scripts.delete_expired_partner_gdpr_reports import (
     ERR_NO_CONFIG,
@@ -25,7 +27,7 @@ TEST_CONFIG_FILENAME = 'test_config.yml'
 TEST_GOOGLE_SECRETS_FILENAME = 'test_google_secrets.json'
 
 
-def _call_script(age_in_days=1, expect_success=True):
+def _call_script(age_in_days=60, expect_success=True):
     """
     Call the report deletion script with a generic, temporary config file.
     Returns the CliRunner.invoke results
@@ -113,7 +115,8 @@ def test_deletion_report_no_matching_files(*args):
     mock_walk_files = args[2]
     mock_driveapi = args[3]
 
-    test_created_date = '2018-07-13T22:21:45.600275+00:00'
+    # Use a recent createdTime so files are newer than the 1-day cutoff and won't be deleted
+    test_created_date = datetime.now(UTC).isoformat()
     mock_walk_files.return_value = [
         {
             'id': 'folder1',
