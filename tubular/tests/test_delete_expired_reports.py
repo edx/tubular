@@ -115,7 +115,7 @@ def test_deletion_report_no_matching_files(*args):
     mock_walk_files = args[2]
     mock_driveapi = args[3]
 
-    # Use a recent createdTime so files are newer than the 1-day cutoff and won't be deleted
+    # Use a recent createdTime so files are newer than the 60-day cutoff and won't be deleted
     test_created_date = datetime.now(UTC).isoformat()
     mock_walk_files.return_value = [
         {
