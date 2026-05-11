@@ -166,6 +166,11 @@ class TestLmsApi(OAuth2Mixin, unittest.TestCase):
             'mock_method': 'retirement_partner_queue',
             'method': 'PUT',
         },
+        {
+            'api_url': 'api/certificates/v1/retire_certs_s3_for_user',
+            'mock_method': 'retirement_retire_certificates',
+            'method': 'POST',
+        },
     )
     @unpack
     @patch.multiple(
@@ -178,6 +183,7 @@ class TestLmsApi(OAuth2Mixin, unittest.TestCase):
         retirement_lms_retire_misc=DEFAULT,
         retirement_lms_retire=DEFAULT,
         retirement_partner_queue=DEFAULT,
+        retirement_retire_certificates=DEFAULT,
     )
     def test_learner_retirement(self, api_url, mock_method, method, **kwargs):
         json_data = {
