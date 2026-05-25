@@ -18,6 +18,7 @@ retirement_pipeline:
     - ['RETIRING_EMAIL_LISTS', 'EMAIL_LISTS_COMPLETE', 'LMS', 'retirement_retire_mailings']
     - ['RETIRING_ENROLLMENTS', 'ENROLLMENTS_COMPLETE', 'LMS', 'retirement_unenroll']
     - ['RETIRING_LMS', 'LMS_COMPLETE', 'LMS', 'retirement_lms_retire']
+    - ['RETIRING_CERTIFICATES', 'CERTIFICATES_COMPLETE', 'LMS', 'retirement_retire_certificates']
 """
 
 import logging

@@ -319,6 +319,19 @@ class LmsApi(BaseApiClient):
         return self._request('POST', api_url, json=data)
 
     @_retry_lms_api()
+    def retirement_retire_certificates(self, learner):
+        """
+        Deletes S3 certificate files and marks GeneratedCertificate records as
+        deleted for the given retired learner.
+
+        Calls the per-user certificate retirement endpoint provided by
+        edx-arch-experiments: POST /api/certificates/v1/retire_certs_s3_for_user
+        """
+        data = {'username': learner['original_username']}
+        api_url = self.get_api_url('api/certificates/v1/retire_certs_s3_for_user')
+        return self._request('POST', api_url, json=data)
+
+    @_retry_lms_api()
     def retirement_partner_queue(self, learner):
         """
         Calls LMS to add the given user to the retirement reporting queue
