@@ -206,6 +206,8 @@ class TestLmsApi(OAuth2Mixin, unittest.TestCase):
             match=[matchers.json_params_matcher(json_data)]
         )
         self.lms_api.retirement_retire_certificates(learner)
+        self.assertEqual(len(responses.calls), 1)
+
 
     @patch.object(edx_api.LmsApi, 'retirement_partner_report')
     def test_retirement_partner_report(self, mock_method):
