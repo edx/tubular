@@ -166,11 +166,6 @@ class TestLmsApi(OAuth2Mixin, unittest.TestCase):
             'mock_method': 'retirement_partner_queue',
             'method': 'PUT',
         },
-        {
-            'api_url': 'api/certificates/v1/retire_certs_s3_for_user',
-            'mock_method': 'retirement_retire_certificates',
-            'method': 'POST',
-        },
     )
     @unpack
     @patch.multiple(
@@ -183,7 +178,6 @@ class TestLmsApi(OAuth2Mixin, unittest.TestCase):
         retirement_lms_retire_misc=DEFAULT,
         retirement_lms_retire=DEFAULT,
         retirement_partner_queue=DEFAULT,
-        retirement_retire_certificates=DEFAULT,
     )
     def test_learner_retirement(self, api_url, mock_method, method, **kwargs):
         json_data = {
@@ -196,6 +190,24 @@ class TestLmsApi(OAuth2Mixin, unittest.TestCase):
         )
         getattr(self.lms_api, mock_method)(get_fake_user_retirement(original_username=FAKE_ORIGINAL_USERNAME))
         kwargs[mock_method].assert_called_once_with(get_fake_user_retirement(original_username=FAKE_ORIGINAL_USERNAME))
+
+    @responses.activate
+    def test_retirement_retire_certificates(self):
+        fake_retired_username = 'retired__user_asdf123'
+        learner = get_fake_user_retirement(
+            original_username=FAKE_ORIGINAL_USERNAME,
+            current_username=fake_retired_username,
+        )
+        json_data = {'username': fake_retired_username}
+        responses.add(
+            POST,
+            urljoin(self.lms_base_url, 'api/certificates/v1/retire_certs_s3_for_user/'),
+            json={'username': fake_retired_username, 'processed': 0, 'failed': []},
+            match=[matchers.json_params_matcher(json_data)]
+        )
+        self.lms_api.retirement_retire_certificates(learner)
+        self.assertEqual(len(responses.calls), 1)
+
 
     @patch.object(edx_api.LmsApi, 'retirement_partner_report')
     def test_retirement_partner_report(self, mock_method):

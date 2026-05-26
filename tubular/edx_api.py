@@ -327,7 +327,7 @@ class LmsApi(BaseApiClient):
         Calls the per-user certificate retirement endpoint provided by
         edx-arch-experiments: POST /api/certificates/v1/retire_certs_s3_for_user
         """
-        data = {'username': learner['original_username']}
+        data = {'username': learner['user']['username']}
         api_url = self.get_api_url('api/certificates/v1/retire_certs_s3_for_user')
         return self._request('POST', api_url, json=data)
 
