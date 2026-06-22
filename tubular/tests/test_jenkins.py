@@ -60,10 +60,12 @@ class TestProperties(unittest.TestCase):
     def test_properties_files(self):
         learners = [
             {
-                'original_username': 'learnerA'
+                'original_username': 'learnerA',
+                'user': {'id': 123},
             },
             {
-                'original_username': 'learnerB'
+                'original_username': 'learnerB',
+                'user': {'id': 456},
             },
         ]
         open_mocker = mock_open()
@@ -71,11 +73,13 @@ class TestProperties(unittest.TestCase):
             jenkins._recreate_directory = Mock()  # pylint: disable=protected-access
             jenkins.export_learner_job_properties(learners, "tmpdir")
         jenkins._recreate_directory.assert_called_once()  # pylint: disable=protected-access
-        self.assertIn(call('tmpdir/learner_retire_learnera', 'w'), open_mocker.call_args_list)
-        self.assertIn(call('tmpdir/learner_retire_learnerb', 'w'), open_mocker.call_args_list)
+        self.assertIn(call('tmpdir/learner_retire_123', 'w'), open_mocker.call_args_list)
+        self.assertIn(call('tmpdir/learner_retire_456', 'w'), open_mocker.call_args_list)
         handle = open_mocker()
         self.assertIn(call('RETIREMENT_USERNAME=learnerA\n'), handle.write.call_args_list)
         self.assertIn(call('RETIREMENT_USERNAME=learnerB\n'), handle.write.call_args_list)
+        self.assertIn(call('RETIREMENT_USER_ID=123\n'), handle.write.call_args_list)
+        self.assertIn(call('RETIREMENT_USER_ID=456\n'), handle.write.call_args_list)
 
 
 @ddt.ddt
