@@ -89,9 +89,13 @@ def _get_learner_state_index_or_exit(learner, config):
 
         return learner_state_index
     except KeyError:
-        FAIL(ERR_BAD_LEARNER, 'Bad learner response missing current_state or state_name: {}'.format(learner))
+        FAIL(ERR_BAD_LEARNER, 'Bad learner response missing current_state or state_name for user ID: {}'.format(
+            learner.get('user', {}).get('id')
+        ))
     except ValueError:
-        FAIL(ERR_UNKNOWN_STATE, 'Unknown learner retirement state for learner: {}'.format(learner))
+        FAIL(ERR_UNKNOWN_STATE, 'Unknown learner retirement state for user ID: {}'.format(
+            learner.get('user', {}).get('id')
+        ))
 
 
 def _config_retirement_pipeline(config):
@@ -122,10 +126,9 @@ def _get_learner_and_state_index_or_exit(config, username, user_id=None):
         learner_state_index = _get_learner_state_index_or_exit(learner, config)
         return learner, learner_state_index
     except HttpDoesNotExistException:
-        identifier = user_id if user_id else username
         FAIL(ERR_BAD_LEARNER, 'Learner {} not found. Please check that the learner is present in '
                               'UserRetirementStatus, is not already retired, '
-                              'and is in an appropriate state to be acted upon.'.format(identifier))
+                              'and is in an appropriate state to be acted upon.'.format(user_id))
     except Exception as exc:  # pylint: disable=broad-except
         FAIL_EXCEPTION(ERR_SETUP_FAILED, 'Unexpected error fetching user state!', str(exc))
 
@@ -139,7 +142,9 @@ def _get_ecom_segment_id(config, learner):
     try:
         return config['ECOMMERCE'].get_tracking_key(learner)
     except HttpDoesNotExistException:
-        LOG('Learner {} not found in Ecommerce. Setting Ecommerce Segment ID to None'.format(learner))
+        LOG('Learner with user ID {} not found in Ecommerce. Setting Ecommerce Segment ID to None'.format(
+            learner.get('user', {}).get('id')
+        ))
         return None
     except Exception as exc:  # pylint: disable=broad-except
         FAIL_EXCEPTION(ERR_SETUP_FAILED, 'Unexpected error fetching Ecommerce tracking id!', str(exc))
@@ -167,8 +172,7 @@ def retire_learner(
     Retrieves a JWT token as the retirement service learner, then performs the retirement process as
     defined in WORKING_STATE_ORDER
     """
-    identifier = user_id if user_id else username
-    LOG('Starting learner retirement for user {} using config file {}'.format(identifier, config_file))
+    LOG('Starting learner retirement for user {} using config file {}'.format(user_id, config_file))
 
     if not config_file:
         FAIL(ERR_BAD_CONFIG, 'No config file passed in.')
@@ -212,7 +216,7 @@ def retire_learner(
             LOG('Progressing to state {}'.format(end_state))
 
         config['LMS'].update_learner_retirement_state(username, COMPLETE_STATE, 'Learner retirement complete.')
-        LOG('Retirement complete for learner with user ID {}'.format(identifier))
+        LOG('Retirement complete for learner with user ID {}'.format(user_id))
     except Exception as exc:  # pylint: disable=broad-except
         exc_msg = _get_error_str_from_exception(exc)
 

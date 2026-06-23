@@ -22,7 +22,7 @@ from tubular.tests.retirement_helpers import (
 )
 
 
-def _call_script(username, fetch_ecom_segment_id=False, user_id=None):
+def _call_script(username, fetch_ecom_segment_id=False, user_id=9009):
     """
     Call the retired learner script with the given username and a generic, temporary config file.
     Returns the CliRunner.invoke results
@@ -114,7 +114,7 @@ def test_user_does_not_exist(*args, **kwargs):
 def test_bad_config():
     username = 'test_username'
     runner = CliRunner()
-    result = runner.invoke(retire_learner, args=['--username', username, '--config_file', 'does_not_exist.yml'])
+    result = runner.invoke(retire_learner, args=['--username', username, '--user_id', '9009', '--config_file', 'does_not_exist.yml'])
     assert result.exit_code == ERR_BAD_CONFIG
     assert 'does_not_exist.yml' in result.output
 
