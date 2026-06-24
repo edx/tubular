@@ -157,7 +157,7 @@ def _get_ecom_segment_id(config, learner):
 )
 @click.option(
     '--user_id',
-    help='The unique user ID of the user to retire'
+    help='The LMS database user ID, used for identification in logs and job titles instead of username'
 )
 @click.option(
     '--config_file',
