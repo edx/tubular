@@ -22,7 +22,7 @@ from tubular.tests.retirement_helpers import (
 )
 
 
-def _call_script(username, fetch_ecom_segment_id=False):
+def _call_script(username, fetch_ecom_segment_id=False, user_id=9009):
     """
     Call the retired learner script with the given username and a generic, temporary config file.
     Returns the CliRunner.invoke results
@@ -31,7 +31,10 @@ def _call_script(username, fetch_ecom_segment_id=False):
     with runner.isolated_filesystem():
         with open('test_config.yml', 'w') as f:
             fake_config_file(f, fetch_ecom_segment_id=fetch_ecom_segment_id)
-        result = runner.invoke(retire_learner, args=['--username', username, '--config_file', 'test_config.yml'])
+        args = ['--username', username, '--config_file', 'test_config.yml']
+        if user_id:
+            args.extend(['--user_id', str(user_id)])
+        result = runner.invoke(retire_learner, args=args)
     print(result)
     print(result.output)
     return result
@@ -60,9 +63,9 @@ def test_successful_retirement(*args, **kwargs):
     mock_lms_retire = kwargs['retirement_lms_retire']
 
     mock_get_access_token.return_value = ('THIS_IS_A_JWT', None)
-    mock_get_retirement_state.return_value = get_fake_user_retirement(original_username=username)
+    mock_get_retirement_state.return_value = get_fake_user_retirement(original_username=username, user_id=12345)
 
-    result = _call_script(username, fetch_ecom_segment_id=True)
+    result = _call_script(username, fetch_ecom_segment_id=True, user_id=12345)
 
     # Called once per API we instantiate (LMS, ECommerce, Credentials)
     assert mock_get_access_token.call_count == 3
@@ -79,7 +82,7 @@ def test_successful_retirement(*args, **kwargs):
         mock_call.assert_called_once_with(mock_get_retirement_state.return_value)
 
     assert result.exit_code == 0
-    assert 'Retirement complete' in result.output
+    assert 'Retirement complete for learner with user ID 12345' in result.output
 
 
 @patch('tubular.edx_api.BaseApiClient.get_access_token')
@@ -111,7 +114,7 @@ def test_user_does_not_exist(*args, **kwargs):
 def test_bad_config():
     username = 'test_username'
     runner = CliRunner()
-    result = runner.invoke(retire_learner, args=['--username', username, '--config_file', 'does_not_exist.yml'])
+    result = runner.invoke(retire_learner, args=['--username', username, '--user_id', '9009', '--config_file', 'does_not_exist.yml'])
     assert result.exit_code == ERR_BAD_CONFIG
     assert 'does_not_exist.yml' in result.output
 

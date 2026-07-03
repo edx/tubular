@@ -89,9 +89,13 @@ def _get_learner_state_index_or_exit(learner, config):
 
         return learner_state_index
     except KeyError:
-        FAIL(ERR_BAD_LEARNER, 'Bad learner response missing current_state or state_name: {}'.format(learner))
+        FAIL(ERR_BAD_LEARNER, 'Bad learner response missing current_state or state_name for user ID: {}'.format(
+            learner.get('user', {}).get('id')
+        ))
     except ValueError:
-        FAIL(ERR_UNKNOWN_STATE, 'Unknown learner retirement state for learner: {}'.format(learner))
+        FAIL(ERR_UNKNOWN_STATE, 'Unknown learner retirement state for user ID: {}'.format(
+            learner.get('user', {}).get('id')
+        ))
 
 
 def _config_retirement_pipeline(config):
@@ -111,7 +115,7 @@ def _config_retirement_pipeline(config):
         config['all_states'].append(end)
 
 
-def _get_learner_and_state_index_or_exit(config, username):
+def _get_learner_and_state_index_or_exit(config, username, user_id=None):
     """
     Double-checks the current learner state, contacting LMS, and maps that state to its
     index in the pipeline. Exits out if the learner is in an invalid state or not found
@@ -124,7 +128,7 @@ def _get_learner_and_state_index_or_exit(config, username):
     except HttpDoesNotExistException:
         FAIL(ERR_BAD_LEARNER, 'Learner {} not found. Please check that the learner is present in '
                               'UserRetirementStatus, is not already retired, '
-                              'and is in an appropriate state to be acted upon.'.format(username))
+                              'and is in an appropriate state to be acted upon.'.format(user_id))
     except Exception as exc:  # pylint: disable=broad-except
         FAIL_EXCEPTION(ERR_SETUP_FAILED, 'Unexpected error fetching user state!', str(exc))
 
@@ -138,7 +142,9 @@ def _get_ecom_segment_id(config, learner):
     try:
         return config['ECOMMERCE'].get_tracking_key(learner)
     except HttpDoesNotExistException:
-        LOG('Learner {} not found in Ecommerce. Setting Ecommerce Segment ID to None'.format(learner))
+        LOG('Learner with user ID {} not found in Ecommerce. Setting Ecommerce Segment ID to None'.format(
+            learner.get('user', {}).get('id')
+        ))
         return None
     except Exception as exc:  # pylint: disable=broad-except
         FAIL_EXCEPTION(ERR_SETUP_FAILED, 'Unexpected error fetching Ecommerce tracking id!', str(exc))
@@ -150,18 +156,23 @@ def _get_ecom_segment_id(config, learner):
     help='The original username of the user to retire'
 )
 @click.option(
+    '--user_id',
+    help='The LMS database user ID, used for identification in logs and job titles instead of username'
+)
+@click.option(
     '--config_file',
     help='File in which YAML config exists that overrides all other params.'
 )
 def retire_learner(
         username,
+        user_id,
         config_file
 ):
     """
     Retrieves a JWT token as the retirement service learner, then performs the retirement process as
     defined in WORKING_STATE_ORDER
     """
-    LOG('Starting learner retirement for {} using config file {}'.format(username, config_file))
+    LOG('Starting learner retirement for user {} using config file {}'.format(user_id, config_file))
 
     if not config_file:
         FAIL(ERR_BAD_CONFIG, 'No config file passed in.')
@@ -170,7 +181,7 @@ def retire_learner(
     _config_retirement_pipeline(config)
     SETUP_ALL_APIS_OR_EXIT(config)
 
-    learner, learner_state_index = _get_learner_and_state_index_or_exit(config, username)
+    learner, learner_state_index = _get_learner_and_state_index_or_exit(config, username, user_id=user_id)
 
     if config.get('fetch_ecommerce_segment_id', False):
         learner['ecommerce_segment_id'] = _get_ecom_segment_id(config, learner)
@@ -205,7 +216,7 @@ def retire_learner(
             LOG('Progressing to state {}'.format(end_state))
 
         config['LMS'].update_learner_retirement_state(username, COMPLETE_STATE, 'Learner retirement complete.')
-        LOG('Retirement complete for learner {}'.format(username))
+        LOG('Retirement complete for learner with user ID {}'.format(user_id))
     except Exception as exc:  # pylint: disable=broad-except
         exc_msg = _get_error_str_from_exception(exc)
 

@@ -34,17 +34,22 @@ def export_learner_job_properties(learners, directory):
     Creates a Jenkins properties file for each learner in order to make
     a retirement slave job for each learner.
 
+    The properties file is named using the learner's unique identifier to
+    prevent exposing sensitive user information in job logs or titles.
+
     Args:
         learners (list of dicts): List of learners for which to create properties files.
+            Each dict must contain the learner's username and unique identifier.
         directory (str): Directory in which to create the properties files.
     """
     _recreate_directory(directory)
 
     for learner in learners:
-        learner_name = learner['original_username'].lower()
-        filename = os.path.join(directory, 'learner_retire_{}'.format(learner_name))
+        learner_id = learner['user']['id']
+        filename = os.path.join(directory, 'learner_retire_{}'.format(learner_id))
         with open(filename, 'w') as learner_prop_file:
             learner_prop_file.write('RETIREMENT_USERNAME={}\n'.format(learner['original_username']))
+            learner_prop_file.write('RETIREMENT_USER_ID={}\n'.format(learner_id))
 
 
 def _poll_giveup(data):

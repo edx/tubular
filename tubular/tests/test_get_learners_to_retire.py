@@ -56,8 +56,8 @@ def test_success(*args, **kwargs):
 
     mock_get_access_token.return_value = ('THIS_IS_A_JWT', None)
     mock_get_learners_to_retire.return_value = [
-        get_fake_user_retirement(original_username='test_user1'),
-        get_fake_user_retirement(original_username='test_user2'),
+        get_fake_user_retirement(original_username='test_user1', user_id=123),
+        get_fake_user_retirement(original_username='test_user2', user_id=456),
     ]
 
     result = _call_script(2)
