@@ -449,11 +449,15 @@ class CredentialsApi(BaseApiClient):
     @_retry_lms_api()
     def retire_learner(self, learner):
         """
-        Performs the learner retirement step for Credentials
+        Performs the learner retirement step for Credentials.
+
+        The Credentials service currently exposes username replacement via
+        /api/v2/replace_usernames/, so retirement in this service maps the
+        original username to the learner's retired username.
         """
-        data = {'username': learner['original_username']}
-        api_url = self.get_api_url('user/retire')
-        return self._request('POST', api_url, json=data)
+        original_username = learner['original_username']
+        retired_username = learner.get('retired_username') or learner.get('user', {}).get('username')
+        return self.replace_usernames([{original_username: retired_username}])
 
     def replace_usernames(self, username_mappings):
         """

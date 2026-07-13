@@ -430,21 +430,12 @@ class TestCredentialApi(OAuth2Mixin, unittest.TestCase):
             'the_client_secret'
         )
 
-    @patch.object(edx_api.CredentialsApi, 'retire_learner')
-    def test_retire_learner(self, mock_method):
-        json_data = {
-            'username': FAKE_ORIGINAL_USERNAME
-        }
-        responses.add(
-            POST,
-            urljoin(self.credentials_base_url, 'user/retire/'),
-            match=[matchers.json_params_matcher(json_data)]
-        )
-        self.credentials_api.retire_learner(
-            learner=get_fake_user_retirement(original_username=FAKE_ORIGINAL_USERNAME)
-        )
-        mock_method.assert_called_once_with(
-            learner=get_fake_user_retirement(original_username=FAKE_ORIGINAL_USERNAME)
+    @patch.object(edx_api.CredentialsApi, 'replace_usernames')
+    def test_retire_learner(self, mock_replace_usernames):
+        learner = get_fake_user_retirement(original_username=FAKE_ORIGINAL_USERNAME)
+        self.credentials_api.retire_learner(learner=learner)
+        mock_replace_usernames.assert_called_once_with(
+            [{FAKE_ORIGINAL_USERNAME: learner['retired_username']}]
         )
 
     @patch.object(edx_api.CredentialsApi, 'replace_usernames')
