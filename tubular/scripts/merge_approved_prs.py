@@ -154,7 +154,7 @@ def octomerge(
             except BaseException as e:
                 logging.error(
                     "Merging of private PRs failed; see this runbook for hints: "
-                    "https://2u-internal.atlassian.net/wiki/spaces/ENG/pages/19466701/LMS+Studio+Security+Fix+Process#Deployments-are-failing-in-the-build_edxapp_amis%2Fprerelease_materials_job-step-in-GoCD"
+                    "https://2u-internal.atlassian.net/wiki/spaces/ENG/pages/19466701/LMS+Studio+Security+Patch+Process#Deployments-are-failing-at-the-edxapp-build/prerelease_materials-stage-in-GoCD"
                 )
                 raise e
         else:
