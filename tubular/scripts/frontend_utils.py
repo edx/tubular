@@ -275,13 +275,19 @@ class FrontendDeployer(FrontendUtils):
             # Could not determine appropriate service or version for app; skipping.
             return
 
-        command_args = ' '.join([
+        command_args_list = [
             f'--service="{service}"',
             f'--release-version="{version}"',
             f'--project-path="{self.app_name}/"',
             '--minified-path-prefix="/"',  # Sourcemaps are relative to the root when deployed
             '--disable-git',  # Disable Datadog's git integration as the current working directory is not a git repo
-        ])
+        ]
+
+        # Only add --repository-url for frontend-app-discussions for now
+        if self.app_name == "frontend-app-discussions":
+            command_args_list.append(f'--repository-url="https://github.com/edx/{self.app_name}"')
+
+        command_args = ' '.join(command_args_list)
         self.LOG('Uploading source maps to Datadog for app {}.'.format(self.app_name))
         proc = subprocess.Popen(
             ' '.join([
