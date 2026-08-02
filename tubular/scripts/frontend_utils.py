@@ -277,7 +277,7 @@ class FrontendDeployer(FrontendUtils):
 
         # Use root project-path for frontend-app-discussions since source is at repo root
         if self.app_name == "frontend-app-discussions":
-            project_path = "/"
+            project_path = "./"
         else:
             project_path = f"{self.app_name}/"
 
