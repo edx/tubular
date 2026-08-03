@@ -286,12 +286,13 @@ class FrontendDeployer(FrontendUtils):
             f'--release-version="{version}"',
             f'--project-path="{project_path}"',
             '--minified-path-prefix="/"',  # Sourcemaps are relative to the root when deployed
-            '--disable-git',  # Disable Datadog's git integration as the current working directory is not a git repo
         ]
 
-        # Only add --repository-url for frontend-app-discussions for now
-        if self.app_name == "frontend-app-discussions":
+        if self.app_name in ["frontend-app-learning"]:
             command_args_list.append(f'--repository-url="https://github.com/edx/{self.app_name}"')
+        else:
+            # Disable Datadog's git integration as the current working directory is not a git repo
+            command_args_list.append('--disable-git')
 
         command_args = ' '.join(command_args_list)
         self.LOG('Uploading source maps to Datadog for app {}.'.format(self.app_name))
