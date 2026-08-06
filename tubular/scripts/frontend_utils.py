@@ -275,16 +275,10 @@ class FrontendDeployer(FrontendUtils):
             # Could not determine appropriate service or version for app; skipping.
             return
 
-        # Use root project-path for frontend-app-discussions since source is at repo root
-        if self.app_name == "frontend-app-discussions":
-            project_path = "./"
-        else:
-            project_path = f"{self.app_name}/"
-
         command_args_list = [
             f'--service="{service}"',
             f'--release-version="{version}"',
-            f'--project-path="{project_path}"',
+            f'--project-path="{self.app_name}/"',
             '--minified-path-prefix="/"',  # Sourcemaps are relative to the root when deployed
             '--disable-git',  # Disable Datadog's git integration as the current working directory is not a git repo
         ]
