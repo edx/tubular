@@ -22,4 +22,6 @@ cloudflare<3.0
 # The right solution here is to upgrade Python and fix all these constraints.
 boto3==1.35.54
 edx-opaque-keys==2.11.0
+# Pinned due to Python 3.8 incompatibility: pbr>=6.0 requires `tomli`, which is
+# only available in stdlib from Python 3.11+. Remove once agents are on Python 3.11+.
 pbr==6.1.1
