@@ -41,7 +41,7 @@ class FakeErrorResponse:
     Fakes an error response
     """
     status_code = 500
-    text = "{'error': 'Test error message'}"
+    text = '{"error": "Test error message"}'
     headers = {}
 
     def json(self):
@@ -59,7 +59,7 @@ class FakeRateLimitedResponse:
     Fakes a 429 rate-limited response that includes a Retry-After header, as Segment does.
     """
     status_code = 429
-    text = "{'error': 'Rate limited'}"
+    text = '{"error": "Rate limited"}'
     headers = {'Retry-After': '1'}
 
     def json(self):
@@ -128,7 +128,7 @@ def test_bulk_delete_error(setup_regulation_api, caplog):  # pylint: disable=red
     mock_post.return_value = FakeErrorResponse()
 
     learner = TEST_SEGMENT_CONFIG['learner']
-    with mock.patch('backoff._sync.time.sleep'):
+    with mock.patch('time.sleep'):
         with pytest.raises(Exception):
             segment.delete_and_suppress_learners(learner, 1000)
 
@@ -150,7 +150,7 @@ def test_bulk_delete_429_respects_retry_after(setup_regulation_api):  # pylint: 
     mock_post.return_value = FakeRateLimitedResponse()
 
     learner = TEST_SEGMENT_CONFIG['learner']
-    with mock.patch('backoff._sync.time.sleep') as mock_sleep:
+    with mock.patch('time.sleep') as mock_sleep:
         with pytest.raises(Exception):
             segment.delete_and_suppress_learners(learner, 1000)
 
@@ -174,7 +174,7 @@ def test_bulk_delete_500_falls_back_to_default_wait(setup_regulation_api):  # py
     mock_post.return_value = FakeErrorResponse()
 
     learner = TEST_SEGMENT_CONFIG['learner']
-    with mock.patch('backoff._sync.time.sleep') as mock_sleep:
+    with mock.patch('time.sleep') as mock_sleep:
         with pytest.raises(Exception):
             segment.delete_and_suppress_learners(learner, 1000)
 
@@ -218,7 +218,7 @@ def test_bulk_unsuppress_error(setup_regulation_api, caplog):  # pylint: disable
     mock_post.return_value = FakeErrorResponse()
 
     learner = TEST_SEGMENT_CONFIG['learner']
-    with mock.patch('backoff._sync.time.sleep'):
+    with mock.patch('time.sleep'):
         with pytest.raises(Exception):
             segment.unsuppress_learners_by_key('original_username', learner, 100)
 
