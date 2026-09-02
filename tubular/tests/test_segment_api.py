@@ -42,6 +42,25 @@ class FakeErrorResponse:
     """
     status_code = 500
     text = "{'error': 'Test error message'}"
+    headers = {}
+
+    def json(self):
+        """
+        Returns fake Segment retirement response error in the correct format
+        """
+        return json.loads(self.text)
+
+    def raise_for_status(self):
+        raise requests.exceptions.HTTPError("", response=self)
+
+
+class FakeRateLimitedResponse:
+    """
+    Fakes a 429 rate-limited response that includes a Retry-After header, as Segment does.
+    """
+    status_code = 429
+    text = "{'error': 'Rate limited'}"
+    headers = {'Retry-After': '1'}
 
     def json(self):
         """
@@ -109,8 +128,9 @@ def test_bulk_delete_error(setup_regulation_api, caplog):  # pylint: disable=red
     mock_post.return_value = FakeErrorResponse()
 
     learner = TEST_SEGMENT_CONFIG['learner']
-    with pytest.raises(Exception):
-        segment.delete_and_suppress_learners(learner, 1000)
+    with mock.patch('backoff._sync.time.sleep'):
+        with pytest.raises(Exception):
+            segment.delete_and_suppress_learners(learner, 1000)
 
     assert mock_post.call_count == 4
     assert "Error was encountered for params:" in caplog.text
@@ -119,6 +139,47 @@ def test_bulk_delete_error(setup_regulation_api, caplog):  # pylint: disable=red
     assert "ecommerce-90" in caplog.text
     assert "Suppress_With_Delete" in caplog.text
     assert "Test error message" in caplog.text
+
+
+def test_bulk_delete_429_respects_retry_after(setup_regulation_api):  # pylint: disable=redefined-outer-name
+    """
+    A 429 from Segment should be retried, waiting for exactly the duration given by the
+    Retry-After header on each attempt rather than jumping straight to computed backoff.
+    """
+    mock_post, segment = setup_regulation_api
+    mock_post.return_value = FakeRateLimitedResponse()
+
+    learner = TEST_SEGMENT_CONFIG['learner']
+    with mock.patch('backoff._sync.time.sleep') as mock_sleep:
+        with pytest.raises(Exception):
+            segment.delete_and_suppress_learners(learner, 1000)
+
+    # All 4 tries are attempted (429 is retryable) before giving up.
+    assert mock_post.call_count == 4
+
+    # 3 waits happen between the 4 tries, each honoring the 1 second Retry-After header
+    # instead of the exponential 1/2/4 second schedule used when no header is present.
+    assert mock_sleep.call_count == 3
+    for call in mock_sleep.call_args_list:
+        assert call.args[0] == 1.0
+
+
+def test_bulk_delete_500_falls_back_to_default_wait(setup_regulation_api):  # pylint: disable=redefined-outer-name
+    """
+    A plain 5xx with no Retry-After header should fall back to a wait that grows by
+    the fixed 30 second increment used elsewhere in this module on each successive
+    try, rather than trying to honor a missing header.
+    """
+    mock_post, segment = setup_regulation_api
+    mock_post.return_value = FakeErrorResponse()
+
+    learner = TEST_SEGMENT_CONFIG['learner']
+    with mock.patch('backoff._sync.time.sleep') as mock_sleep:
+        with pytest.raises(Exception):
+            segment.delete_and_suppress_learners(learner, 1000)
+
+    assert mock_post.call_count == 4
+    assert [call.args[0] for call in mock_sleep.call_args_list] == [30, 60, 90]
 
 
 def test_bulk_unsuppress_success(setup_regulation_api):  # pylint: disable=redefined-outer-name
@@ -157,8 +218,9 @@ def test_bulk_unsuppress_error(setup_regulation_api, caplog):  # pylint: disable
     mock_post.return_value = FakeErrorResponse()
 
     learner = TEST_SEGMENT_CONFIG['learner']
-    with pytest.raises(Exception):
-        segment.unsuppress_learners_by_key('original_username', learner, 100)
+    with mock.patch('backoff._sync.time.sleep'):
+        with pytest.raises(Exception):
+            segment.unsuppress_learners_by_key('original_username', learner, 100)
 
     assert mock_post.call_count == 4
     assert "Error was encountered for params:" in caplog.text
