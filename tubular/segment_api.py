@@ -52,6 +52,44 @@ def _wait_30_seconds():
     return backoff.constant(interval=30)
 
 
+def _get_retry_after_seconds(exc):
+    """
+    Returns the number of seconds indicated by the Retry-After header on an HTTPError's
+    response, if present and in the (seconds, not HTTP-date) form Segment sends. Returns
+    None if there is no usable Retry-After value, so the caller can fall back to its own
+    backoff schedule.
+    """
+    try:
+        retry_after = exc.response.headers.get('Retry-After')
+    except AttributeError:
+        return None
+
+    if retry_after is None:
+        return None
+
+    try:
+        return float(retry_after)
+    except (TypeError, ValueError):
+        return None
+
+
+def _retry_after_wait_gen():
+    """
+    Backoff generator for HTTP errors that honors Segment's Retry-After header when
+    present (as on a 429 rate limit response), falling back to a wait that grows by
+    the same fixed 30 seconds used elsewhere in this module on each successive try
+    (30, 60, 90, ...) when the header is missing, as on a bare 5xx.
+    """
+    exc = yield
+    tries = 0
+    while True:
+        tries += 1
+        wait = _get_retry_after_seconds(exc)
+        if wait is None:
+            wait = 30 * tries
+        exc = yield wait
+
+
 def _http_status_giveup(exc):
     """
     Giveup method that gives up backoff upon any non-5xx and 504 server errors.
@@ -71,10 +109,11 @@ def _retry_segment_api():
             on_backoff=lambda details: _backoff_handler(details)  # pylint: disable=unnecessary-lambda
         )
         func_with_backoff = backoff.on_exception(
-            backoff.expo,
+            _retry_after_wait_gen,
             requests.exceptions.HTTPError,
             max_tries=MAX_TRIES,
             giveup=_http_status_giveup,
+            jitter=None,
             on_backoff=lambda details: _backoff_handler(details)  # pylint: disable=unnecessary-lambda
         )
         func_with_timeout_backoff = backoff.on_exception(
