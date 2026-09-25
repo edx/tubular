@@ -10,18 +10,10 @@
 
 # TODO: Many pinned dependencies should be unpinned and/or moved to this constraints file.
 
-#boto3==1.20.54
-#botocore>=1.23.54,<1.24.0   #https://github.com/boto/boto3/commit/d226d9db05b4fb9d24b4e090efcc752ace5d4985#diff-67fbd34f176dc812829309d74467869a35bf5af2764b626fc1cfb4656c94c633R21
 responses<0.21.0
-django<4.0
-setuptools<60
+# Django 4.2 LTS is the first Django series that installs on Python 3.12 (3.2 imports distutils).
+# Tubular only needs Django transitively (edx-rest-api-client -> edx-django-utils); 5.2 is a follow-up.
+django<4.3
 google-api-python-client<2
 moto<5.0
 cloudflare<3.0
-# boto3 and edx-opaque-keys caused problems on recent make upgrades as of https://github.com/edx/tubular/pull/41
-# The right solution here is to upgrade Python and fix all these constraints.
-boto3==1.35.54
-edx-opaque-keys==2.11.0
-# Pinned due to Python 3.8 incompatibility: pbr>=6.0 requires `tomli`, which is
-# only available in stdlib from Python 3.11+. Remove once agents are on Python 3.11+.
-pbr==6.1.1

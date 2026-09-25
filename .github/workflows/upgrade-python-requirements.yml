@@ -15,6 +15,7 @@ jobs:
     uses: openedx/.github/.github/workflows/upgrade-python-requirements.yml@master
     with:
       branch: ${{ github.event.inputs.branch || 'master' }}
+      python_version: "3.12"
       team_reviewers: "site-reliability-engineering"
       email_address: sre@edx.org
       send_success_notification: false

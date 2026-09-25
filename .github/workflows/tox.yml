@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.8']
+        python-version: ['3.12']
     steps:
     - uses: actions/checkout@v4
       with:
@@ -23,7 +23,7 @@ jobs:
     - run: tox -- -n0
 
     - name: Run coverage
-      if: matrix.python-version == '3.8'
+      if: matrix.python-version == '3.12'
       uses: codecov/codecov-action@v3
       with:
         flags: unittests

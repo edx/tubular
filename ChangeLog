@@ -1,8 +1,45 @@
 CHANGES
 =======
 
-* chore: no 429s in RV
-* feat: allowing deletion from red ventures
+* fix: honor Segment's Retry-After header when retiring learners
+* fix: address Copilot review feedback on Segment retry tests
+* fix: honor Segment's Retry-After header when retiring learners
+* fix: Update constraints.txt to include pbr package
+* fix: run datadog-ci in the MFE checkout to restore GitHub code links
+* Revert "fix: add git code link to frontend-app-discussions" (#79)
+* Revert "fix: adjust project path handling for frontend-app-discussions in Fro…" (#78)
+* Revert "Alenka/connect frontend app discussions code link in datadog (#75)" (#76)
+* Alenka/connect frontend app discussions code link in datadog (#75)
+* fix: adjust project path handling for frontend-app-discussions in Fro… (#74)
+* fix: add git code link to frontend-app-discussions
+* fix: Update sec patch runbook URL (#72)
+* feat: update retire\_learner method to use replace\_usernames for username mapping (#71)
+* feat: update Jenkins properties file generation to use learner IDs for filenames (#70)
+* fix: correct username key in retirement certificate API request (#69)
+* feat: add retirement certificate deletion functionality to LmsApi and update retirement pipeline (#68)
+* feat: update overdue notification to include calculated deletion date (#66)
+* feat: reuse deletion warning notifications (#65)
+* feat: Remove unnecessary file prefix check in expiring files notification (#64)
+* feat: Add overdue file notification for files past retention period (#63)
+* feat: Add deletion warning notifications for expiring files (#59)
+* feat: added enable\_delete\_notification flag (#62)
+* feat: Enhance GitHub checks validation logic and add deployment gate options (#58)
+* chore: deleting retirement archive cleanup script (#57)
+* feat: Simplify logging messages for SFMC contact search and deletion (#56)
+* feat: Implement contact key retrieval and deletion process in SFMC (#55)
+* feat: enhanced first notify for poc users and then fail for non-poc users (#54)
+* feat: Enhance logging for file deletion process in Google DriveApi (#52)
+* feat: Add support for exempt partners without POC in retirement reporting (#49)
+* build: updated ubuntu version to latest
+* feat: Enhance logging for file deletion criteria in DriveApi (#50)
+* feat: Implement Salesforce Marketing Cloud API for user deletion (#48)
+* feat: Allow ASGs of empty size if matching a name
+* feat: Remove unused retrieve\_base\_ami.py (#46)
+* feat: Add Jammy to Ubuntu AMI retrieval script (#45)
+* chore: fixing rv retirements success code (#44)
+* chore: fixing rv retirements bug (#43)
+* chore: fixing bug in RV retirement (#42)
+* feat: allowing deletion from red ventures (#41)
 * feat:  adding commerce tools to retirement pipeline
 * chore: readme fixes
 * chore: undeprecating retirement
