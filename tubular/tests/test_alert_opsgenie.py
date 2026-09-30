@@ -21,11 +21,19 @@ class TestAlertOpsGenie(TestCase):
     def test_create_alert(self, message, auth, description, responders, alias, should_fail):
         with patch.object(ops.opsgenie_api.Session, 'post') as mock_post:
             runner = CliRunner()
-            args = ['--message', message, '--auth_token', auth, '--description', description]
-            if responders:
-                args.extend(['--responders', responders])
-            if alias:
-                args.extend(['--alias', alias])
+            # Omit an option entirely when its value is None so that click reports
+            # the missing required option (exit code 2). click >= 8.2 stringifies a
+            # literal None in the args list instead of treating it as absent.
+            args = []
+            for flag, value in (
+                ('--message', message),
+                ('--auth_token', auth),
+                ('--description', description),
+                ('--responders', responders),
+                ('--alias', alias),
+            ):
+                if value is not None:
+                    args.extend([flag, value])
             invoke_response = runner.invoke(
                 ops.alert_opsgenie,
                 catch_exceptions=False,

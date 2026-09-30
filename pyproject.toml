@@ -1,0 +1,3 @@
+[build-system]
+requires = ["pbr>=7.0", "setuptools>=68"]
+build-backend = "pbr.build"

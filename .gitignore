@@ -69,3 +69,8 @@ target/
 # pyenv version
 .python-version
 
+# Python environments
+/venv/
+/.venv/
+/env/
+/.env/
