@@ -20,7 +20,7 @@ jobs:
     - run: rm -f /etc/boto.cfg
     - run: pip3 install --upgrade pip setuptools
     - run: pip3 install 'tox'
-    - run: tox -- -n0
+    - run: tox -e "py$(echo '${{ matrix.python-version }}' | tr -d .)" -- -n0
 
     - name: Run coverage
       if: matrix.python-version == '3.12'
