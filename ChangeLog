@@ -1,6 +1,7 @@
 CHANGES
 =======
 
+* feat: add Python 3.12 support and drop Python 3.8
 * fix: honor Segment's Retry-After header when retiring learners
 * fix: address Copilot review feedback on Segment retry tests
 * fix: honor Segment's Retry-After header when retiring learners
