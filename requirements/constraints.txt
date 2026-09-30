@@ -25,11 +25,12 @@ auth0-python<4.6
 # still allows 3.8 (2.13.0 is the first release that does). 2.11 is what the 3.8 lock has run
 # with. Remove together with Python 3.8.
 edx-opaque-keys<2.13
-# Bridge only: pynacl 1.6 needs cffi >= 2.0 on Python >= 3.9, so a lock compiled on 3.8
-# (cffi 1.17) does not install on 3.12. 1.5 works on both. Remove together with Python 3.8.
-pynacl<1.6
-# Bridge only: cryptography >= 42 needs cffi >= 2.0 on Python >= 3.9 (same problem as pynacl);
-# 41.0.7 is what the 3.8 lock runs and it installs on 3.12. Remove together with Python 3.8.
+# Bridge only: pynacl >= 1.6.1 requires cffi >= 2.0 on Python >= 3.9 (1.6.0 only on >= 3.14),
+# so a lock compiled on 3.8 (cffi 1.17) does not install on 3.12. Remove together with Python 3.8.
+pynacl<1.6.1
+# Bridge only: base.txt is held at cryptography 41.x by auth0-python 4.5.0 (< 42); testing.txt
+# must resolve to the same version or the two installs conflict, and cryptography >= 46.0.3
+# also requires cffi >= 2.0 on Python >= 3.9. Remove together with Python 3.8 / auth0-python<4.6.
 cryptography<42
 google-api-python-client<2
 moto<5.0
