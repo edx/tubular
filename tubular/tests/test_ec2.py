@@ -393,7 +393,8 @@ class TestEC2(unittest.TestCase):
     @mock_elb
     def test_get_asgs_pending_delete(self):
         asg_name = "test-asg-deletion"
-        deletion_dttm_str = datetime.datetime.utcnow().isoformat()
+        # A few minutes in the past, so a backward clock step mid-test cannot put it in the future.
+        deletion_dttm_str = (datetime.datetime.utcnow() - datetime.timedelta(minutes=5)).isoformat()
         create_asg_with_tags(asg_name, {ec2.ASG_DELETE_TAG_KEY: deletion_dttm_str})
 
         asgs = ec2.get_asgs_pending_delete()
@@ -409,7 +410,8 @@ class TestEC2(unittest.TestCase):
     def test_get_asgs_pending_delete_incorrectly_formatted_timestamp(self):
         asg_name1 = "test-asg-deletion"
         asg_name2 = "test-asg-deletion-bad-timestamp"
-        deletion_dttm_str1 = datetime.datetime.utcnow().isoformat()
+        # A few minutes in the past, so a backward clock step mid-test cannot put it in the future.
+        deletion_dttm_str1 = (datetime.datetime.utcnow() - datetime.timedelta(minutes=5)).isoformat()
         deletion_dttm_str2 = "2016-05-18 18:19:46.144884"
 
         create_asg_with_tags(asg_name1, {ec2.ASG_DELETE_TAG_KEY: deletion_dttm_str1})
