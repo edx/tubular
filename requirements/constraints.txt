@@ -10,18 +10,28 @@
 
 # TODO: Many pinned dependencies should be unpinned and/or moved to this constraints file.
 
-#boto3==1.20.54
-#botocore>=1.23.54,<1.24.0   #https://github.com/boto/boto3/commit/d226d9db05b4fb9d24b4e090efcc752ace5d4985#diff-67fbd34f176dc812829309d74467869a35bf5af2764b626fc1cfb4656c94c633R21
 responses<0.21.0
-django<4.0
-setuptools<60
+# Bridge release: tubular must install on Python 3.8 (current GoCD/Jenkins agents) and 3.12
+# (target). Requirements are compiled on 3.8 and verified on 3.12; 3.8 is dropped once the
+# agents move (BOMS-405).
+# Django 4.2 LTS is the first Django series that installs on Python 3.12 (3.2 imports distutils).
+# Tubular only needs Django transitively (edx-rest-api-client -> edx-django-utils); 5.2 is a follow-up.
+django<4.3
+# Bridge only: auth0-python >= 4.6 requires urllib3 >= 2, but botocore needs urllib3 < 1.27 on
+# Python < 3.10, so a 3.8 resolve falls back to a 2018 boto3. 4.5.0 is what the 3.8 lock has
+# run with for years. Remove this line together with Python 3.8 support.
+auth0-python<4.6
+# Bridge only: edx-opaque-keys >= 2.13 imports typing.Self (Python 3.11+) although its metadata
+# still allows 3.8 (2.13.0 is the first release that does). 2.11 is what the 3.8 lock has run
+# with. Remove together with Python 3.8.
+edx-opaque-keys<2.13
+# Bridge only: pynacl >= 1.6.1 requires cffi >= 2.0 on Python >= 3.9 (1.6.0 only on >= 3.14),
+# so a lock compiled on 3.8 (cffi 1.17) does not install on 3.12. Remove together with Python 3.8.
+pynacl<1.6.1
+# Bridge only: base.txt is held at cryptography 41.x by auth0-python 4.5.0 (< 42); testing.txt
+# must resolve to the same version or the two installs conflict, and cryptography >= 46.0.3
+# also requires cffi >= 2.0 on Python >= 3.9. Remove together with Python 3.8 / auth0-python<4.6.
+cryptography<42
 google-api-python-client<2
 moto<5.0
 cloudflare<3.0
-# boto3 and edx-opaque-keys caused problems on recent make upgrades as of https://github.com/edx/tubular/pull/41
-# The right solution here is to upgrade Python and fix all these constraints.
-boto3==1.35.54
-edx-opaque-keys==2.11.0
-# Pinned due to Python 3.8 incompatibility: pbr>=6.0 requires `tomli`, which is
-# only available in stdlib from Python 3.11+. Remove once agents are on Python 3.11+.
-pbr==6.1.1

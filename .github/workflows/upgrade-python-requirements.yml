@@ -15,6 +15,8 @@ jobs:
     uses: openedx/.github/.github/workflows/upgrade-python-requirements.yml@master
     with:
       branch: ${{ github.event.inputs.branch || 'master' }}
+      # Bridge: compile on the oldest supported Python so the pins install on 3.8 and 3.12.
+      python_version: "3.8"
       team_reviewers: "site-reliability-engineering"
       email_address: sre@edx.org
       send_success_notification: false

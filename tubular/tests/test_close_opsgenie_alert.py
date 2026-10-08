@@ -18,9 +18,13 @@ class TestCloseOpsgenieAlert(TestCase):
     def test_close_alert(self, auth, alias, source, should_fail):
         with patch.object(ops.opsgenie_api.Session, 'post') as mock_post:
             runner = CliRunner()
-            args = ['--auth_token', auth, '--alias', alias]
-            if source:
-                args.extend(['--source', source])
+            # Omit an option entirely when its value is None so that click reports
+            # the missing required option (exit code 2). click >= 8.2 stringifies a
+            # literal None in the args list instead of treating it as absent.
+            args = []
+            for flag, value in (('--auth_token', auth), ('--alias', alias), ('--source', source)):
+                if value is not None:
+                    args.extend([flag, value])
             invoke_response = runner.invoke(
                 ops.close_opsgenie_alert,
                 catch_exceptions=False,
