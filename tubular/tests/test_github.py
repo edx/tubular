@@ -23,6 +23,9 @@ from github.IssueComment import IssueComment
 from github.NamedUser import NamedUser
 from github.Organization import Organization
 from github.PullRequest import PullRequest
+from github.Rate import Rate
+from github.RateLimit import RateLimit
+from github.RateLimitOverview import RateLimitOverview
 from github.Repository import Repository
 
 import six
@@ -61,6 +64,20 @@ class GitHubApiTestCase(TestCase):
         self.api.log_rate_limit = Mock(return_value=None)
         self.api.get_branch_protection_rules = Mock(return_value=[])
         super(GitHubApiTestCase, self).setUp()
+
+    def test_log_rate_limit(self):
+        """
+        log_rate_limit reads the core limit from the RateLimitOverview returned by PyGithub.
+        """
+        rate_limit = Mock(
+            spec=RateLimitOverview,
+            resources=Mock(spec=RateLimit, core=Mock(spec=Rate, remaining=4767, limit=5000)),
+        )
+        with patch.object(self.api.github_connection, 'get_rate_limit', return_value=rate_limit):
+            with patch.object(github_api.LOG, 'info') as mock_info:
+                # setUp mocks out log_rate_limit, so call the real method.
+                GitHubAPI.log_rate_limit(self.api)
+        mock_info.assert_called_once_with('Github API RL Remaining 4767 of 5000')
 
     @patch('github.Github.get_user')
     def test_user(self, mock_user_method):

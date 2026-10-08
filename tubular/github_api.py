@@ -187,16 +187,16 @@ class GitHubAPI:
     def get_rate_limit(self):
         """
         Returns the rate limit and remaining calls before the limit is hit
-        Example: RateLimit(rate=Rate(remaining=4767, limit=5000))
+        Example: RateLimitOverview(rate=Rate(remaining=4767, limit=5000))
         """
         return self.github_connection.get_rate_limit()
 
     def log_rate_limit(self):
         """
         Logs the rate limit and remaining calls before the limit is hit
-        Example: RateLimit(rate=Rate(remaining=4767, limit=5000))
+        Example: RateLimitOverview(rate=Rate(remaining=4767, limit=5000))
         """
-        limit_data = self.get_rate_limit().core
+        limit_data = self.get_rate_limit().resources.core
         LOG.info("Github API RL Remaining {} of {}".format(limit_data.remaining, limit_data.limit))
         return self.github_connection.get_rate_limit()
 
