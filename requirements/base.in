@@ -1,5 +1,9 @@
 -c constraints.txt
 
+# Bridge only: Django needs this on Python < 3.9. Listing it here keeps the environment marker
+# in the compiled lock so the same base.txt installs on 3.8 and 3.12. Remove with Python 3.8.
+backports.zoneinfo; python_version < "3.9"
+
 auth0-python
 backoff
 boto3
@@ -20,9 +24,6 @@ pytz
 pyyaml
 requests
 sailthru-client
-# yagocd (approve_stage.py) imports distutils, which Python 3.12 no longer ships; setuptools
-# provides it. pbr used to bring setuptools in, but stevedore no longer depends on pbr.
-setuptools
 simple-salesforce
 six
 unicodecsv
