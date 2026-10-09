@@ -20,6 +20,5 @@ upgrade:
 	pip install -qr requirements/pip-tools.txt
 	$(PIP_COMPILE) --allow-unsafe -o requirements/pip.txt requirements/pip.in
 	$(PIP_COMPILE) -o requirements/pip-tools.txt requirements/pip-tools.in
-# --allow-unsafe keeps setuptools in base.txt (see requirements/base.in).
-	$(PIP_COMPILE) --allow-unsafe -o requirements/base.txt requirements/base.in
+	$(PIP_COMPILE) -o requirements/base.txt requirements/base.in
 	$(PIP_COMPILE) -o requirements/testing.txt requirements/testing.in
