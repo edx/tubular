@@ -188,6 +188,44 @@ class SalesforceMarketingCloudApi:
             logger.error(error_msg)
             raise SalesforceMarketingCloudRecoverableException(error_msg)
 
+    def _check_delete_response(self, response: requests.Response, contact_key: str) -> None:
+        """
+        Verify that SFMC actually accepted a delete request.
+
+        SFMC returns HTTP 200 even when it rejects the delete (e.g. "OperationDisabled" when the
+        token is scoped to a child Business Unit), so the body must confirm success:
+        {"operationInitiated": true, "hasErrors": false, ...}. Anything else is a failure.
+
+        Args:
+            response (requests.Response): HTTP 200 response from the contact delete endpoint
+            contact_key (str): Contact key that was submitted for deletion
+
+        Raises:
+            SalesforceMarketingCloudException: if SFMC did not initiate the delete operation.
+        """
+        try:
+            response_data = response.json()
+        except ValueError:
+            response_data = None
+
+        if (
+            isinstance(response_data, dict)
+            and response_data.get('operationInitiated') is True
+            and response_data.get('hasErrors') is False
+        ):
+            logger.info(
+                f"SFMC user deletion initiated for contact key: {contact_key}, "
+                f"operationID: {response_data.get('operationID')}"
+            )
+            return
+
+        error_msg = (
+            f"SFMC user deletion was not initiated for contact key {contact_key} "
+            f"- Details: {response_data if response_data is not None else response.text}"
+        )
+        logger.error(error_msg)
+        raise SalesforceMarketingCloudException(error_msg)
+
     @backoff.on_exception(
         backoff.expo,
         SalesforceMarketingCloudRecoverableException,
@@ -241,9 +279,7 @@ class SalesforceMarketingCloudApi:
             )
 
             if response.status_code == 200:
-                logger.info(
-                    f"SFMC user deletion succeeded for contact key: {contact_key}"
-                )
+                self._check_delete_response(response, contact_key)
                 return
 
             error_msg = (
