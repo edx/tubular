@@ -37,6 +37,18 @@ class TestSalesforceMarketingCloud(TestCase):
         self.search_url = 'https://test-subdomain.rest.marketingcloudapis.com/contacts/v1/addresses/email/search'
         self.delete_url = 'https://test-subdomain.rest.marketingcloudapis.com/contacts/v1/contacts/actions/delete?type=keys'
         self.access_token = 'test-access-token-12345'
+        # Shape of a real SFMC response for an accepted delete
+        self.delete_success_json = {
+            'suppressionType': 'SuppressAllRequested',
+            'operationInitiated': True,
+            'operationID': 12345,
+            'priority': 'Standard',
+            'requestServiceMessageID': 'test-request-id',
+            'responseDateTime': '2026-10-08T06:28:20.5841927-06:00',
+            'hasErrors': False,
+            'resultMessages': [],
+            'serviceMessageID': 'test-service-id',
+        }
 
     def _mock_token_request(self, req_mock, status_code=200, access_token=None):
         if access_token is None:
@@ -94,7 +106,7 @@ class TestSalesforceMarketingCloud(TestCase):
     def test_delete_user_happy_path(self, req_mock):
         self._mock_token_request(req_mock)
         self._mock_search_request(req_mock, contact_key=self.contact_key)
-        self._mock_delete_request(req_mock, 200)
+        self._mock_delete_request(req_mock, 200, response_json=self.delete_success_json)
 
         logger = logging.getLogger('tubular.salesforce_marketing_cloud_api')
         with mock.patch.object(logger, 'info') as mock_info:
@@ -102,8 +114,9 @@ class TestSalesforceMarketingCloud(TestCase):
 
         self.assertTrue(mock_info.called)
         info_calls = [str(call) for call in mock_info.call_args_list]
-        self.assertTrue(any('SFMC user deletion succeeded' in call for call in info_calls))
+        self.assertTrue(any('SFMC user deletion initiated' in call for call in info_calls))
         self.assertTrue(any(self.contact_key in call for call in info_calls))
+        self.assertTrue(any('12345' in call for call in info_calls))
 
         self.assertEqual(len(req_mock.request_history), 3)
         
@@ -176,6 +189,52 @@ class TestSalesforceMarketingCloud(TestCase):
         error_message = str(mock_error.call_args)
         self.assertIn('SFMC user deletion failed', error_message)
         self.assertIn('400', error_message)
+
+    @ddt.data(
+        # Real SFMC response (returned with HTTP 200) when the token is scoped to a child Business Unit
+        {
+            'suppressionType': 'None',
+            'operationInitiated': False,
+            'operationID': 486444,
+            'priority': 'Standard',
+            'hasErrors': True,
+            'resultMessages': [{
+                'resultType': 'Operational',
+                'resultClass': 'Error',
+                'resultCode': 'OperationDisabled',
+                'message': 'The Contact Delete operation cannot be Enabled for Business Unit '
+                           'or On Your Behalf account types.',
+            }],
+        },
+        {'operationID': 1, 'operationInitiated': False, 'hasErrors': False, 'resultMessages': []},
+        {'operationID': 1, 'operationInitiated': True, 'hasErrors': True, 'resultMessages': []},
+        {},
+    )
+    def test_delete_200_not_initiated(self, response_json, req_mock):
+        self._mock_token_request(req_mock)
+        self._mock_search_request(req_mock, contact_key=self.contact_key)
+        self._mock_delete_request(req_mock, 200, response_json=response_json)
+
+        logger = logging.getLogger('tubular.salesforce_marketing_cloud_api')
+        with mock.patch.object(logger, 'error') as mock_error:
+            with self.assertRaises(SalesforceMarketingCloudException) as context:
+                self.sfmc.delete_user(self.learner)
+
+        self.assertNotIsInstance(context.exception, SalesforceMarketingCloudRecoverableException)
+        self.assertIn('SFMC user deletion was not initiated', str(context.exception))
+        self.assertTrue(mock_error.called)
+        # Fatal error: no retries
+        self.assertEqual(len(req_mock.request_history), 3)
+
+    def test_delete_200_non_json_body(self, req_mock):
+        self._mock_token_request(req_mock)
+        self._mock_search_request(req_mock, contact_key=self.contact_key)
+        req_mock.post(self.delete_url, text='not json', status_code=200)
+
+        with self.assertRaises(SalesforceMarketingCloudException) as context:
+            self.sfmc.delete_user(self.learner)
+
+        self.assertIn('not json', str(context.exception))
 
     @ddt.data(429, 500)
     def test_search_recoverable_error(self, status_code, req_mock):
