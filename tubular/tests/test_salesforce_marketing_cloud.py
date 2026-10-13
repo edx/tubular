@@ -15,6 +15,7 @@ from tubular.salesforce_marketing_cloud_api import (
     SalesforceMarketingCloudException,
     SalesforceMarketingCloudRecoverableException,
 )
+from tubular.scripts.helpers import _setup_all_apis_or_exit
 
 
 @ddt.ddt
@@ -31,7 +32,8 @@ class TestSalesforceMarketingCloud(TestCase):
         self.sfmc = SalesforceMarketingCloudApi(
             'test-client-id',
             'test-client-secret',
-            'test-subdomain'
+            'test-subdomain',
+            'test-account-id',
         )
         self.token_url = 'https://test-subdomain.auth.marketingcloudapis.com/v2/token'
         self.search_url = 'https://test-subdomain.rest.marketingcloudapis.com/contacts/v1/addresses/email/search'
@@ -124,7 +126,8 @@ class TestSalesforceMarketingCloud(TestCase):
         self.assertEqual(token_request.json(), {
             'grant_type': 'client_credentials',
             'client_id': 'test-client-id',
-            'client_secret': 'test-client-secret'
+            'client_secret': 'test-client-secret',
+            'account_id': 'test-account-id',
         })
 
         search_request = req_mock.request_history[1]
@@ -277,3 +280,61 @@ class TestSalesforceMarketingCloud(TestCase):
 
         # Should have retried with backoff
         self.assertGreaterEqual(len(req_mock.request_history), 2)
+
+
+class TestSalesforceMarketingCloudSetup(TestCase):
+    """
+    Tests for SFMC configuration checks when setting up retirement APIs.
+    """
+
+    def _config(self, **sfmc_overrides):
+        config = {
+            'base_urls': {'lms': 'https://lms.example.com'},
+            'client_id': 'bogus id',
+            'client_secret': 'supersecret',
+            'retirement_pipeline': [
+                ['RETIRING_SFMC', 'SFMC_COMPLETE', 'SALESFORCE_MARKETING_CLOUD', 'delete_user'],
+            ],
+            'salesforce_marketing_cloud_client_id': 'test-client-id',
+            'salesforce_marketing_cloud_secret': 'test-client-secret',
+            'salesforce_marketing_cloud_subdomain': 'test-subdomain',
+            'salesforce_marketing_cloud_account_id': 'test-account-id',
+        }
+        config.update(sfmc_overrides)
+        return config
+
+    @mock.patch('tubular.scripts.helpers.LmsApi')
+    def test_setup_passes_account_id(self, _mock_lms):
+        config = self._config()
+        fail_func = mock.Mock(side_effect=SystemExit)
+
+        _setup_all_apis_or_exit(fail_func, -1, config)
+
+        fail_func.assert_not_called()
+        self.assertEqual(config['SALESFORCE_MARKETING_CLOUD'].account_id, 'test-account-id')
+
+    @mock.patch('tubular.scripts.helpers.LmsApi')
+    def test_setup_fails_without_client_id(self, _mock_lms):
+        config = self._config(salesforce_marketing_cloud_client_id=None)
+        fail_func = mock.Mock(side_effect=SystemExit)
+
+        with self.assertRaises(SystemExit):
+            _setup_all_apis_or_exit(fail_func, -1, config)
+
+        self.assertIn('Service URL is not configured', fail_func.call_args[0][1])
+
+    @mock.patch('tubular.scripts.helpers.LmsApi')
+    def test_setup_without_sfmc_stage_ignores_sfmc_settings(self, _mock_lms):
+        config = self._config(
+            retirement_pipeline=[['RETIRING_LMS', 'LMS_COMPLETE', 'LMS', 'retirement_retire']],
+            salesforce_marketing_cloud_client_id=None,
+            salesforce_marketing_cloud_secret=None,
+            salesforce_marketing_cloud_subdomain=None,
+            salesforce_marketing_cloud_account_id=None,
+        )
+        fail_func = mock.Mock(side_effect=SystemExit)
+
+        _setup_all_apis_or_exit(fail_func, -1, config)
+
+        fail_func.assert_not_called()
+        self.assertNotIn('SALESFORCE_MARKETING_CLOUD', config)

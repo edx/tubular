@@ -39,6 +39,7 @@ class SalesforceMarketingCloudApi:
         client_id: str,
         client_secret: str,
         subdomain: str,
+        account_id: str,
     ):
         """
         Initialize the SFMC API client.
@@ -47,10 +48,13 @@ class SalesforceMarketingCloudApi:
             client_id: SFMC OAuth client ID
             client_secret: SFMC OAuth client secret
             subdomain: SFMC subdomain (e.g., 'mc123456789')
+            account_id: SFMC account MID to scope the access token to. Contact deletion is only
+                allowed at the Enterprise (parent) account level, so this should be the Enterprise MID.
         """
         self.client_id = client_id
         self.client_secret = client_secret
         self.subdomain = subdomain
+        self.account_id = account_id
         self.token_host = f"{subdomain}.auth.marketingcloudapis.com"
         self.suppression_host = f"{subdomain}.rest.marketingcloudapis.com"
 
@@ -75,6 +79,7 @@ class SalesforceMarketingCloudApi:
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
+            "account_id": self.account_id,
         }
         token_headers = {"Content-Type": "application/json"}
 
