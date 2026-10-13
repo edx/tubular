@@ -39,6 +39,7 @@ class SalesforceMarketingCloudApi:
         client_id: str,
         client_secret: str,
         subdomain: str,
+        account_id: str,
     ):
         """
         Initialize the SFMC API client.
@@ -47,10 +48,13 @@ class SalesforceMarketingCloudApi:
             client_id: SFMC OAuth client ID
             client_secret: SFMC OAuth client secret
             subdomain: SFMC subdomain (e.g., 'mc123456789')
+            account_id: SFMC account MID to scope the access token to. Contact deletion is only
+                allowed at the Enterprise (parent) account level, so this should be the Enterprise MID.
         """
         self.client_id = client_id
         self.client_secret = client_secret
         self.subdomain = subdomain
+        self.account_id = account_id
         self.token_host = f"{subdomain}.auth.marketingcloudapis.com"
         self.suppression_host = f"{subdomain}.rest.marketingcloudapis.com"
 
@@ -75,6 +79,7 @@ class SalesforceMarketingCloudApi:
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
+            "account_id": self.account_id,
         }
         token_headers = {"Content-Type": "application/json"}
 
@@ -188,6 +193,44 @@ class SalesforceMarketingCloudApi:
             logger.error(error_msg)
             raise SalesforceMarketingCloudRecoverableException(error_msg)
 
+    def _check_delete_response(self, response: requests.Response, contact_key: str) -> None:
+        """
+        Verify that SFMC actually accepted a delete request.
+
+        SFMC returns HTTP 200 even when it rejects the delete (e.g. "OperationDisabled" when the
+        token is scoped to a child Business Unit), so the body must confirm success:
+        {"operationInitiated": true, "hasErrors": false, ...}. Anything else is a failure.
+
+        Args:
+            response (requests.Response): HTTP 200 response from the contact delete endpoint
+            contact_key (str): Contact key that was submitted for deletion
+
+        Raises:
+            SalesforceMarketingCloudException: if SFMC did not initiate the delete operation.
+        """
+        try:
+            response_data = response.json()
+        except ValueError:
+            response_data = None
+
+        if (
+            isinstance(response_data, dict)
+            and response_data.get('operationInitiated') is True
+            and response_data.get('hasErrors') is False
+        ):
+            logger.info(
+                f"SFMC user deletion initiated for contact key: {contact_key}, "
+                f"operationID: {response_data.get('operationID')}"
+            )
+            return
+
+        error_msg = (
+            f"SFMC user deletion was not initiated for contact key {contact_key} "
+            f"- Details: {response_data if response_data is not None else response.text}"
+        )
+        logger.error(error_msg)
+        raise SalesforceMarketingCloudException(error_msg)
+
     @backoff.on_exception(
         backoff.expo,
         SalesforceMarketingCloudRecoverableException,
@@ -241,9 +284,7 @@ class SalesforceMarketingCloudApi:
             )
 
             if response.status_code == 200:
-                logger.info(
-                    f"SFMC user deletion succeeded for contact key: {contact_key}"
-                )
+                self._check_delete_response(response, contact_key)
                 return
 
             error_msg = (

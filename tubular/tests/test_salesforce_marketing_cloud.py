@@ -15,6 +15,7 @@ from tubular.salesforce_marketing_cloud_api import (
     SalesforceMarketingCloudException,
     SalesforceMarketingCloudRecoverableException,
 )
+from tubular.scripts.helpers import _setup_all_apis_or_exit
 
 
 @ddt.ddt
@@ -31,12 +32,25 @@ class TestSalesforceMarketingCloud(TestCase):
         self.sfmc = SalesforceMarketingCloudApi(
             'test-client-id',
             'test-client-secret',
-            'test-subdomain'
+            'test-subdomain',
+            'test-account-id',
         )
         self.token_url = 'https://test-subdomain.auth.marketingcloudapis.com/v2/token'
         self.search_url = 'https://test-subdomain.rest.marketingcloudapis.com/contacts/v1/addresses/email/search'
         self.delete_url = 'https://test-subdomain.rest.marketingcloudapis.com/contacts/v1/contacts/actions/delete?type=keys'
         self.access_token = 'test-access-token-12345'
+        # Shape of a real SFMC response for an accepted delete
+        self.delete_success_json = {
+            'suppressionType': 'SuppressAllRequested',
+            'operationInitiated': True,
+            'operationID': 12345,
+            'priority': 'Standard',
+            'requestServiceMessageID': 'test-request-id',
+            'responseDateTime': '2026-10-08T06:28:20.5841927-06:00',
+            'hasErrors': False,
+            'resultMessages': [],
+            'serviceMessageID': 'test-service-id',
+        }
 
     def _mock_token_request(self, req_mock, status_code=200, access_token=None):
         if access_token is None:
@@ -94,7 +108,7 @@ class TestSalesforceMarketingCloud(TestCase):
     def test_delete_user_happy_path(self, req_mock):
         self._mock_token_request(req_mock)
         self._mock_search_request(req_mock, contact_key=self.contact_key)
-        self._mock_delete_request(req_mock, 200)
+        self._mock_delete_request(req_mock, 200, response_json=self.delete_success_json)
 
         logger = logging.getLogger('tubular.salesforce_marketing_cloud_api')
         with mock.patch.object(logger, 'info') as mock_info:
@@ -102,8 +116,9 @@ class TestSalesforceMarketingCloud(TestCase):
 
         self.assertTrue(mock_info.called)
         info_calls = [str(call) for call in mock_info.call_args_list]
-        self.assertTrue(any('SFMC user deletion succeeded' in call for call in info_calls))
+        self.assertTrue(any('SFMC user deletion initiated' in call for call in info_calls))
         self.assertTrue(any(self.contact_key in call for call in info_calls))
+        self.assertTrue(any('operationID: 12345' in call for call in info_calls))
 
         self.assertEqual(len(req_mock.request_history), 3)
         
@@ -111,7 +126,8 @@ class TestSalesforceMarketingCloud(TestCase):
         self.assertEqual(token_request.json(), {
             'grant_type': 'client_credentials',
             'client_id': 'test-client-id',
-            'client_secret': 'test-client-secret'
+            'client_secret': 'test-client-secret',
+            'account_id': 'test-account-id',
         })
 
         search_request = req_mock.request_history[1]
@@ -177,6 +193,52 @@ class TestSalesforceMarketingCloud(TestCase):
         self.assertIn('SFMC user deletion failed', error_message)
         self.assertIn('400', error_message)
 
+    @ddt.data(
+        # Real SFMC response (returned with HTTP 200) when the token is scoped to a child Business Unit
+        {
+            'suppressionType': 'None',
+            'operationInitiated': False,
+            'operationID': 486444,
+            'priority': 'Standard',
+            'hasErrors': True,
+            'resultMessages': [{
+                'resultType': 'Operational',
+                'resultClass': 'Error',
+                'resultCode': 'OperationDisabled',
+                'message': 'The Contact Delete operation cannot be Enabled for Business Unit '
+                           'or On Your Behalf account types.',
+            }],
+        },
+        {'operationID': 1, 'operationInitiated': False, 'hasErrors': False, 'resultMessages': []},
+        {'operationID': 1, 'operationInitiated': True, 'hasErrors': True, 'resultMessages': []},
+        {},
+    )
+    def test_delete_200_not_initiated(self, response_json, req_mock):
+        self._mock_token_request(req_mock)
+        self._mock_search_request(req_mock, contact_key=self.contact_key)
+        self._mock_delete_request(req_mock, 200, response_json=response_json)
+
+        logger = logging.getLogger('tubular.salesforce_marketing_cloud_api')
+        with mock.patch.object(logger, 'error') as mock_error:
+            with self.assertRaises(SalesforceMarketingCloudException) as context:
+                self.sfmc.delete_user(self.learner)
+
+        self.assertNotIsInstance(context.exception, SalesforceMarketingCloudRecoverableException)
+        self.assertIn('SFMC user deletion was not initiated', str(context.exception))
+        self.assertTrue(mock_error.called)
+        # Fatal error: no retries
+        self.assertEqual(len(req_mock.request_history), 3)
+
+    def test_delete_200_non_json_body(self, req_mock):
+        self._mock_token_request(req_mock)
+        self._mock_search_request(req_mock, contact_key=self.contact_key)
+        req_mock.post(self.delete_url, text='not json', status_code=200)
+
+        with self.assertRaises(SalesforceMarketingCloudException) as context:
+            self.sfmc.delete_user(self.learner)
+
+        self.assertIn('not json', str(context.exception))
+
     @ddt.data(429, 500)
     def test_search_recoverable_error(self, status_code, req_mock):
         self._mock_token_request(req_mock)
@@ -218,3 +280,61 @@ class TestSalesforceMarketingCloud(TestCase):
 
         # Should have retried with backoff
         self.assertGreaterEqual(len(req_mock.request_history), 2)
+
+
+class TestSalesforceMarketingCloudSetup(TestCase):
+    """
+    Tests for SFMC configuration checks when setting up retirement APIs.
+    """
+
+    def _config(self, **sfmc_overrides):
+        config = {
+            'base_urls': {'lms': 'https://lms.example.com'},
+            'client_id': 'bogus id',
+            'client_secret': 'supersecret',
+            'retirement_pipeline': [
+                ['RETIRING_SFMC', 'SFMC_COMPLETE', 'SALESFORCE_MARKETING_CLOUD', 'delete_user'],
+            ],
+            'salesforce_marketing_cloud_client_id': 'test-client-id',
+            'salesforce_marketing_cloud_secret': 'test-client-secret',
+            'salesforce_marketing_cloud_subdomain': 'test-subdomain',
+            'salesforce_marketing_cloud_account_id': 'test-account-id',
+        }
+        config.update(sfmc_overrides)
+        return config
+
+    @mock.patch('tubular.scripts.helpers.LmsApi')
+    def test_setup_passes_account_id(self, _mock_lms):
+        config = self._config()
+        fail_func = mock.Mock(side_effect=SystemExit)
+
+        _setup_all_apis_or_exit(fail_func, -1, config)
+
+        fail_func.assert_not_called()
+        self.assertEqual(config['SALESFORCE_MARKETING_CLOUD'].account_id, 'test-account-id')
+
+    @mock.patch('tubular.scripts.helpers.LmsApi')
+    def test_setup_fails_without_client_id(self, _mock_lms):
+        config = self._config(salesforce_marketing_cloud_client_id=None)
+        fail_func = mock.Mock(side_effect=SystemExit)
+
+        with self.assertRaises(SystemExit):
+            _setup_all_apis_or_exit(fail_func, -1, config)
+
+        self.assertIn('Service URL is not configured', fail_func.call_args[0][1])
+
+    @mock.patch('tubular.scripts.helpers.LmsApi')
+    def test_setup_without_sfmc_stage_ignores_sfmc_settings(self, _mock_lms):
+        config = self._config(
+            retirement_pipeline=[['RETIRING_LMS', 'LMS_COMPLETE', 'LMS', 'retirement_retire']],
+            salesforce_marketing_cloud_client_id=None,
+            salesforce_marketing_cloud_secret=None,
+            salesforce_marketing_cloud_subdomain=None,
+            salesforce_marketing_cloud_account_id=None,
+        )
+        fail_func = mock.Mock(side_effect=SystemExit)
+
+        _setup_all_apis_or_exit(fail_func, -1, config)
+
+        fail_func.assert_not_called()
+        self.assertNotIn('SALESFORCE_MARKETING_CLOUD', config)
