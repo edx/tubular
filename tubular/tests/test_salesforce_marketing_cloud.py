@@ -118,7 +118,7 @@ class TestSalesforceMarketingCloud(TestCase):
         info_calls = [str(call) for call in mock_info.call_args_list]
         self.assertTrue(any('SFMC user deletion initiated' in call for call in info_calls))
         self.assertTrue(any(self.contact_key in call for call in info_calls))
-        self.assertTrue(any('12345' in call for call in info_calls))
+        self.assertTrue(any('operationID: 12345' in call for call in info_calls))
 
         self.assertEqual(len(req_mock.request_history), 3)
         
