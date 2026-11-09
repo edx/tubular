@@ -527,3 +527,24 @@ class CommerceCoordinatorApi(BaseApiClient):
         data = {'edx_lms_user_id': learner['user']['id']}
         api_url = self.get_api_url('lms/user_retirement')
         return self._request('POST', api_url, json=data)
+
+
+class OrderFulfillmentApi(BaseApiClient):
+    """
+    Order Fulfillment (OFS) API client.
+    """
+    @_retry_lms_api()
+    def retire_learner(self, learner):
+        """
+        Performs the learner retirement step for Order Fulfillment, which also forwards the request to Viax.
+
+        ``request_id`` is the learner's ``UserRetirementStatus`` id, so a rerun after a reset gets the same Viax job
+        back. Returns ``{"job_id": ...}``: a 202 means Viax durably accepted the job, not that it finished. OFS has no
+        status endpoint to poll yet.
+        """
+        data = {
+            'lms_user_id': learner['user']['id'],
+            'request_id': learner['id'],
+        }
+        api_url = self.get_api_url('api/user-retirements')
+        return self._request('POST', api_url, json=data)

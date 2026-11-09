@@ -27,6 +27,7 @@ from tubular.edx_api import (
     EcommerceApi,
     LicenseManagerApi,
     LmsApi,
+    OrderFulfillmentApi,
 )
 from tubular.amplitude_api import AmplitudeApi  # pylint: disable=wrong-import-position
 from tubular.braze_api import BrazeApi  # pylint: disable=wrong-import-position
@@ -171,6 +172,7 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
         segment_base_url = config['base_urls'].get('segment', None)
         license_manager_base_url = config['base_urls'].get('license_manager', None)
         commerce_coordinator_base_url = config['base_urls'].get('commerce_coordinator', None)
+        order_fulfillment_base_url = config['base_urls'].get('order_fulfillment', None)
         client_id = config['client_id']
         client_secret = config['client_secret']
         braze_api_key = config.get('braze_api_key', None)
@@ -207,6 +209,7 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
                     ('SEGMENT', segment_base_url),
                     ('HUBSPOT', hubspot_api_key),
                     ('COMMERCE_COORDINATOR', commerce_coordinator_base_url),
+                    ('ORDER_FULFILLMENT', order_fulfillment_base_url),
                     ('RED_VENTURES', red_ventures_auth_url),
                     ('SALESFORCE_MARKETING_CLOUD', salesforce_marketing_cloud_client_id),
             ):
@@ -269,6 +272,14 @@ def _setup_all_apis_or_exit(fail_func, fail_code, config):
             config['COMMERCE_COORDINATOR'] = CommerceCoordinatorApi(
                 lms_base_url,
                 commerce_coordinator_base_url,
+                client_id,
+                client_secret,
+            )
+
+        if order_fulfillment_base_url:
+            config['ORDER_FULFILLMENT'] = OrderFulfillmentApi(
+                lms_base_url,
+                order_fulfillment_base_url,
                 client_id,
                 client_secret,
             )

@@ -569,3 +569,47 @@ class TestCommerceCoordinatorApi(OAuth2Mixin, unittest.TestCase):
             urljoin(self.commerce_coordinator_base_url, 'lms/user_retirement/'),
             json=json_data
         )
+
+
+class TestOrderFulfillmentApi(OAuth2Mixin, unittest.TestCase):
+    """
+    Test the edX Order Fulfillment API client.
+    """
+
+    @responses.activate(registry=OrderedRegistry)
+    def setUp(self):
+        super().setUp()
+        self.mock_access_token_response()
+        self.order_fulfillment_base_url = 'http://localhost:8155/'
+        self.url = urljoin(self.order_fulfillment_base_url, 'api/user-retirements/')
+        self.order_fulfillment_api = edx_api.OrderFulfillmentApi(
+            'http://localhost:18000/',
+            self.order_fulfillment_base_url,
+            'the_client_id',
+            'the_client_secret'
+        )
+        self.learner = get_fake_user_retirement()
+
+    @responses.activate
+    def test_retire_learner(self):
+        responses.add(
+            POST,
+            self.url,
+            status=202,
+            json={'job_id': 'job-1'},
+            match=[matchers.json_params_matcher({
+                'lms_user_id': self.learner['user']['id'],
+                'request_id': self.learner['id'],
+            })],
+        )
+
+        self.assertEqual(self.order_fulfillment_api.retire_learner(self.learner), {'job_id': 'job-1'})
+
+    @responses.activate
+    def test_retire_learner_rejected(self):
+        # A 4xx isn't retried, so retire_one_learner moves the learner to ERRORED.
+        responses.add(POST, self.url, status=409, json={'error': 'Viax returned 409.'})
+
+        with self.assertRaises(HTTPError):
+            self.order_fulfillment_api.retire_learner(self.learner)
+        self.assertEqual(len(responses.calls), 1)
